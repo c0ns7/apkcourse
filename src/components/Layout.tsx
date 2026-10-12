@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { Avatar } from './Avatar'
 import { Icon, type IconName } from './Icon'
 import './Layout.css'
 
@@ -19,7 +18,7 @@ const studentNav: NavItem[] = [
   { to: '/student/grades', label: 'Успеваемость', icon: 'chart' },
   { to: '/student/schedule', label: 'Расписание', icon: 'calendar' },
   { to: '/student/announcements', label: 'Объявления', icon: 'megaphone' },
-  { to: '/student/chat', label: 'Чат', icon: 'chat' },
+  { to: '/student/chat', label: 'Чаты', icon: 'chat' },
 ]
 
 const teacherNav: NavItem[] = [
@@ -28,7 +27,7 @@ const teacherNav: NavItem[] = [
   { to: '/teacher/students', label: 'Студенты', icon: 'users' },
   { to: '/teacher/grading', label: 'Проверка', icon: 'check' },
   { to: '/teacher/announcements', label: 'Объявления', icon: 'megaphone' },
-  { to: '/teacher/chat', label: 'Чат', icon: 'chat' },
+  { to: '/teacher/chat', label: 'Чаты', icon: 'chat' },
 ]
 
 const adminNav: NavItem[] = [
@@ -40,7 +39,7 @@ const adminNav: NavItem[] = [
 export function Layout() {
   const { currentUser, logout, data, markAllNotificationsRead } = useApp()
   const navigate = useNavigate()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   if (!currentUser) return null
 
@@ -72,88 +71,77 @@ export function Layout() {
 
   return (
     <div className="app-shell">
-      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
-        <Link to={nav[0].to} className="sidebar-brand" onClick={() => setSidebarOpen(false)}>
-          <span className="logo-mark">АПК</span>
-          <div className="sidebar-brand-text">
-            <strong>АПК</strong>
-            <small>им. Б. Ринчино</small>
-          </div>
-        </Link>
+      <header className="sg-header">
+        <nav className={`sg-menu ${menuOpen ? 'open' : ''}`}>
+          <Link
+            to={nav[0].to}
+            className="sg-home"
+            title="На главную"
+            onClick={() => setMenuOpen(false)}
+          >
+            <Icon name="home" size={22} />
+          </Link>
 
-        <nav className="sidebar-nav">
           {nav.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.end}
-              className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
-              onClick={() => setSidebarOpen(false)}
+              className={({ isActive }) => `sg-item ${isActive ? 'current' : ''}`}
+              onClick={() => setMenuOpen(false)}
             >
-              <span className="sidebar-icon">
-                <Icon name={item.icon} size={20} />
-              </span>
               {item.label}
               {item.to === '/teacher/grading' && gradingCount > 0 && (
-                <span className="sidebar-badge">{gradingCount}</span>
+                <span className="sg-badge">{gradingCount}</span>
               )}
             </NavLink>
           ))}
+
+          <div className="sg-user">
+            <Link
+              to="/notifications"
+              className="sg-icon-btn"
+              onClick={() => {
+                markAllNotificationsRead()
+                setMenuOpen(false)
+              }}
+              aria-label="Уведомления"
+            >
+              <Icon name="bell" size={18} />
+              {unread > 0 && <span className="notification-dot" />}
+            </Link>
+            <NavLink to="/profile" className="sg-user-link" onClick={() => setMenuOpen(false)}>
+              {currentUser.fullName.split(' ')[0]}
+              <small>{roleLabels[currentUser.role]}</small>
+            </NavLink>
+            <button type="button" className="sg-logout" onClick={handleLogout}>
+              Выход
+            </button>
+          </div>
         </nav>
 
-        <div className="sidebar-footer">
-          <NavLink to="/profile" className="sidebar-profile" onClick={() => setSidebarOpen(false)}>
-            <Avatar name={currentUser.fullName} size={36} />
-            <div>
-              <strong>{currentUser.fullName.split(' ')[0]}</strong>
-              <span>{roleLabels[currentUser.role]}</span>
-            </div>
-          </NavLink>
-          <Link to="/privacy" className="sidebar-legal" onClick={() => setSidebarOpen(false)}>
-            Конфиденциальность
-          </Link>
-        </div>
-      </aside>
-
-      {sidebarOpen && (
         <button
           type="button"
-          className="sidebar-backdrop"
+          className="sg-burger"
+          aria-label="Меню"
+          onClick={() => setMenuOpen((v) => !v)}
+        >
+          <Icon name="menu" size={22} />
+        </button>
+      </header>
+
+      {menuOpen && (
+        <button
+          type="button"
+          className="sg-backdrop"
           aria-label="Закрыть меню"
-          onClick={() => setSidebarOpen(false)}
+          onClick={() => setMenuOpen(false)}
         />
       )}
 
-      <div className="app-main">
-        <header className="topbar">
-          <button
-            type="button"
-            className="menu-toggle"
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Меню"
-          >
-            <Icon name="menu" size={22} />
-          </button>
-          <div className="topbar-actions">
-            <Link
-              to="/notifications"
-              className="topbar-btn"
-              onClick={() => markAllNotificationsRead()}
-              aria-label="Уведомления"
-            >
-              <Icon name="bell" size={20} />
-              {unread > 0 && <span className="notification-dot" />}
-            </Link>
-            <button type="button" className="btn-ghost btn-sm" onClick={handleLogout}>
-              Выйти
-            </button>
-          </div>
-        </header>
-
-        <main className="main-content">
-          <Outlet />
-        </main>
-      </div>
+      <main className="main-content">
+        <Outlet />
+      </main>
     </div>
   )
 }

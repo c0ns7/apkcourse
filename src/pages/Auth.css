@@ -1,106 +1,157 @@
 .auth-page {
+  min-height: calc(100vh - 0px);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  padding: 2rem 1.25rem 3rem;
-  background:
-    linear-gradient(180deg, var(--official-soft) 0%, transparent 40%),
-    var(--bg);
+  padding: 2rem 1rem 3rem;
+  background: #336699;
+  color: #9bd;
 }
 
 .auth-card {
   width: 100%;
-  max-width: 420px;
-  border-top: 4px solid var(--primary);
+  max-width: 440px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  text-align: center;
 }
 
 .auth-card h1 {
-  margin: 0.5rem 0 0.25rem;
-  font-size: 1.65rem;
-  color: var(--primary-dark);
+  margin: 0.35rem 0 0.25rem;
+  font-size: 2rem;
+  font-weight: 300;
+  letter-spacing: -0.04em;
+  color: #fff;
+  line-height: 1.1;
 }
 
 .auth-sub {
-  color: var(--text-muted);
-  font-size: 0.9rem;
+  color: #9bd;
+  font-size: 1.05rem;
+  font-weight: 300;
   margin: 0 0 1.5rem;
-  line-height: 1.45;
+  line-height: 1.4;
 }
 
 .auth-back {
-  font-size: 0.85rem;
-  color: var(--text-muted);
+  font-size: 0.9rem;
+  color: #9bd;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
 .auth-back:hover {
-  color: var(--primary);
+  color: #fff;
 }
 
 .auth-card .btn-block {
-  margin-top: 0.35rem;
+  margin-top: 0.5rem;
 }
 
 .auth-tabs {
   display: flex;
-  gap: 0.35rem;
-  margin: 0.85rem 0 0.65rem;
-  padding: 0.3rem;
-  background: var(--official-soft);
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
+  gap: 0;
+  margin: 1rem 0 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  overflow: hidden;
 }
 
 .auth-tabs button {
   flex: 1;
   border: none;
-  background: transparent;
-  padding: 0.55rem 0.75rem;
-  border-radius: 4px;
-  cursor: pointer;
-  color: var(--text-muted);
+  border-radius: 0;
+  background: rgba(0, 0, 0, 0.12);
+  padding: 0.65rem;
+  color: #9bd;
   font: inherit;
-  font-weight: 700;
-  min-height: 2.35rem;
+  font-weight: 600;
+  min-height: 2.5rem;
   box-shadow: none;
 }
 
 .auth-tabs button:hover:not(.active) {
-  color: var(--primary);
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
 }
 
 .auth-tabs button.active {
   background: #fff;
-  color: var(--primary-dark);
-  box-shadow: var(--shadow);
-  border: 1px solid var(--border);
+  color: #336699;
 }
 
-.demo-hint {
-  margin-top: 1.25rem;
-  padding: 0.9rem 1rem;
-  border-radius: var(--radius);
-  background: var(--official-soft);
-  border: 1px solid var(--border);
-  border-left: 4px solid var(--primary);
-  font-size: 0.85rem;
-  line-height: 1.55;
-  color: var(--text-muted);
+.auth-card .form-group {
+  text-align: left;
 }
 
-.demo-hint strong {
+.auth-card .form-group label {
+  color: #cfe0f0;
+}
+
+.auth-card input,
+.auth-card select,
+.auth-card textarea {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.auth-card .btn-primary {
+  background: #114477;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.auth-card .btn-primary:hover:not(:disabled) {
+  background: #0d3560;
+}
+
+.auth-card .check-option,
+.auth-card .radio-option,
+.auth-card .consent-box,
+.auth-card .checkbox-grid {
+  text-align: left;
+  background: rgba(255, 255, 255, 0.96);
   color: var(--text);
 }
 
+.auth-card .checkbox-grid {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.auth-card .choice-row .radio-option {
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.auth-card .legal-link {
+  color: #114477;
+}
+
+.demo-hint {
+  margin-top: 1.5rem;
+  padding: 0.9rem 1rem;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: #cfe0f0;
+  text-align: left;
+}
+
+.demo-hint strong {
+  color: #fff;
+}
+
 .demo-hint code {
-  background: #e2e8f0;
+  background: rgba(255, 255, 255, 0.15);
   padding: 0.1rem 0.35rem;
   border-radius: 3px;
   font-size: 0.8rem;
+  color: #fff;
 }
 
-.consent-box .legal-link {
-  white-space: normal;
+.auth-card .alert-error {
+  text-align: left;
 }

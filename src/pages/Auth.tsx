@@ -103,9 +103,9 @@ export function Login() {
   }
 
   return (
-    <SiteChrome>
+    <SiteChrome variant="login">
     <div className="auth-page">
-      <div className="auth-card card" style={{ maxWidth: tab === 'register' ? 520 : 420 }}>
+      <div className="auth-card" style={{ maxWidth: tab === 'register' ? 520 : 440 }}>
         <Link to="/" className="auth-back">
           ← На главную
         </Link>
@@ -134,8 +134,14 @@ export function Login() {
 
         {tab === 'login' ? (
           <>
-            <h1>Вход</h1>
-            <p className="auth-sub">Агинский педагогический колледж им. Базара Ринчино</p>
+            <h1>
+              АПК
+              <br />
+              <span style={{ fontSize: '0.62em', fontWeight: 400, color: '#9bd' }}>
+                Образовательный портал
+              </span>
+            </h1>
+            <p className="auth-sub">Вход в личный кабинет</p>
             {error && <div className="alert alert-error">{error}</div>}
             <form onSubmit={handleLogin}>
               <div className="form-group">
