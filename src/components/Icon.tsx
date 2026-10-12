@@ -14,6 +14,7 @@ import {
   LayoutDashboard,
   Megaphone,
   Menu,
+  MessageCircle,
   Moon,
   Paperclip,
   Search,
@@ -47,6 +48,7 @@ export type IconName =
   | 'search'
   | 'student'
   | 'teacher'
+  | 'chat'
 
 const icons: Record<IconName, ComponentType<LucideProps>> = {
   home: Home,
@@ -71,6 +73,7 @@ const icons: Record<IconName, ComponentType<LucideProps>> = {
   search: Search,
   student: GraduationCap,
   teacher: User,
+  chat: MessageCircle,
 }
 
 export function Icon({

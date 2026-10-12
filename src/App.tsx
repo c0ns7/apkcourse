@@ -19,6 +19,7 @@ import { TeacherStudents } from './pages/teacher/TeacherStudents'
 import { TeacherGrading } from './pages/teacher/TeacherGrading'
 import { AdminDashboard } from './pages/admin/AdminDashboard'
 import { AdminUsers } from './pages/admin/AdminUsers'
+import { ChatPage } from './pages/shared/ChatPage'
 
 function HomeRedirect() {
   const { currentUser } = useApp()
@@ -92,6 +93,14 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="student/chat"
+          element={
+            <ProtectedRoute roles={['student']}>
+              <ChatPage />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="teacher"
@@ -138,6 +147,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute roles={['teacher']}>
               <AnnouncementsPage canCreate />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="teacher/chat"
+          element={
+            <ProtectedRoute roles={['teacher']}>
+              <ChatPage />
             </ProtectedRoute>
           }
         />

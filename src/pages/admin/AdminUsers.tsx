@@ -4,7 +4,11 @@ import { PageHeader } from '../../components/PageHeader'
 import { SearchInput } from '../../components/SearchInput'
 import { Avatar } from '../../components/Avatar'
 import type { Role } from '../../types'
-import { formatPhoneDisplay, normalizePhone } from '../../utils/helpers'
+import {
+  ACADEMIC_YEARS,
+  CURRENT_ACADEMIC_YEAR,
+  SPECIALTIES,
+} from '../../utils/helpers'
 
 const roleLabels = { student: 'Студент', teacher: 'Преподаватель', admin: 'Администратор' }
 
@@ -14,10 +18,13 @@ export function AdminUsers() {
   const [roleFilter, setRoleFilter] = useState<'all' | 'student' | 'teacher' | 'admin'>('all')
   const [showForm, setShowForm] = useState(false)
   const [fullName, setFullName] = useState('')
-  const [phone, setPhone] = useState('')
+  const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<Exclude<Role, 'admin'>>('student')
   const [group, setGroup] = useState('')
+  const [specialty, setSpecialty] = useState(SPECIALTIES[0])
+  const [course, setCourse] = useState(1)
+  const [academicYear, setAcademicYear] = useState(CURRENT_ACADEMIC_YEAR)
   const [formError, setFormError] = useState('')
 
   const filtered = data.users.filter((u) => {
@@ -26,27 +33,35 @@ export function AdminUsers() {
     if (!q) return true
     return (
       u.fullName.toLowerCase().includes(q) ||
-      normalizePhone(u.phone).includes(normalizePhone(search))
+      u.login.toLowerCase().includes(q) ||
+      (u.group ?? '').toLowerCase().includes(q)
     )
   })
 
   const resetForm = () => {
     setFullName('')
-    setPhone('')
+    setLogin('')
     setPassword('')
     setRole('student')
     setGroup('')
+    setSpecialty(SPECIALTIES[0])
+    setCourse(1)
+    setAcademicYear(CURRENT_ACADEMIC_YEAR)
     setFormError('')
   }
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault()
     const err = createUser({
-      phone,
+      login,
       password,
       fullName,
       role,
       group: role === 'student' ? group : undefined,
+      specialty: role === 'student' ? specialty : undefined,
+      course: role === 'student' ? course : undefined,
+      academicYear,
+      personalDataConsent: true,
     })
     if (err) {
       setFormError(err)
@@ -79,18 +94,15 @@ export function AdminUsers() {
                 id="new-fullName"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="Иванов Иван Иванович"
                 required
               />
             </div>
             <div className="form-group">
-              <label htmlFor="new-phone">Телефон</label>
+              <label htmlFor="new-login">Логин</label>
               <input
-                id="new-phone"
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+7 (924) 000-00-00"
+                id="new-login"
+                value={login}
+                onChange={(e) => setLogin(e.target.value)}
                 required
               />
             </div>
@@ -107,21 +119,57 @@ export function AdminUsers() {
             </div>
             <div className="form-group">
               <label htmlFor="new-role">Роль</label>
-              <select id="new-role" value={role} onChange={(e) => setRole(e.target.value as Exclude<Role, 'admin'>)}>
+              <select
+                id="new-role"
+                value={role}
+                onChange={(e) => setRole(e.target.value as Exclude<Role, 'admin'>)}
+              >
                 <option value="student">Студент</option>
                 <option value="teacher">Преподаватель</option>
               </select>
             </div>
+            <div className="form-group">
+              <label>Учебный год</label>
+              <select value={academicYear} onChange={(e) => setAcademicYear(e.target.value)}>
+                {ACADEMIC_YEARS.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </div>
             {role === 'student' && (
-              <div className="form-group">
-                <label htmlFor="new-group">Группа</label>
-                <input
-                  id="new-group"
-                  value={group}
-                  onChange={(e) => setGroup(e.target.value)}
-                  placeholder="ПД-21"
-                />
-              </div>
+              <>
+                <div className="form-group">
+                  <label>Специальность</label>
+                  <select value={specialty} onChange={(e) => setSpecialty(e.target.value)}>
+                    {SPECIALTIES.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Курс</label>
+                  <select value={course} onChange={(e) => setCourse(Number(e.target.value))}>
+                    {[1, 2, 3, 4].map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="new-group">Группа</label>
+                  <input
+                    id="new-group"
+                    value={group}
+                    onChange={(e) => setGroup(e.target.value)}
+                    placeholder="ПД-21"
+                  />
+                </div>
+              </>
             )}
             <div className="form-actions">
               <button type="submit" className="btn-primary">
@@ -132,11 +180,16 @@ export function AdminUsers() {
         </div>
       )}
 
-      <SearchInput value={search} onChange={setSearch} placeholder="Поиск по имени или телефону..." />
+      <SearchInput value={search} onChange={setSearch} placeholder="Поиск по имени, логину, группе..." />
 
       <div className="filter-chips">
         {(['all', 'student', 'teacher', 'admin'] as const).map((r) => (
-          <button key={r} type="button" className={`chip ${roleFilter === r ? 'active' : ''}`} onClick={() => setRoleFilter(r)}>
+          <button
+            key={r}
+            type="button"
+            className={`chip ${roleFilter === r ? 'active' : ''}`}
+            onClick={() => setRoleFilter(r)}
+          >
             {r === 'all' ? 'Все' : roleLabels[r]}
           </button>
         ))}
@@ -148,20 +201,26 @@ export function AdminUsers() {
             <tr>
               <th></th>
               <th>ФИО</th>
-              <th>Телефон</th>
+              <th>Логин</th>
               <th>Роль</th>
               <th>Группа</th>
+              <th>Год</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((u) => (
               <tr key={u.id}>
-                <td><Avatar name={u.fullName} size={32} /></td>
+                <td>
+                  <Avatar name={u.fullName} size={32} />
+                </td>
                 <td>{u.fullName}</td>
-                <td>{formatPhoneDisplay(u.phone)}</td>
-                <td><span className={`badge badge-${u.role}`}>{roleLabels[u.role]}</span></td>
+                <td>{u.login}</td>
+                <td>
+                  <span className={`badge badge-${u.role}`}>{roleLabels[u.role]}</span>
+                </td>
                 <td>{u.group || '—'}</td>
+                <td>{u.academicYear || '—'}</td>
                 <td>
                   {u.role !== 'admin' && (
                     <button

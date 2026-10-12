@@ -1,3 +1,5 @@
+import type { AssignmentType, GradeMode, Submission } from '../types'
+
 export type DeadlineStatus = 'ok' | 'soon' | 'overdue' | 'today'
 
 export function getInitials(name: string) {
@@ -45,40 +47,61 @@ export const deadlineLabels: Record<DeadlineStatus, string> = {
   overdue: 'Просрочено',
 }
 
-export const assignmentTypeLabels = {
-  essay: 'Реферат',
+export const assignmentTypeLabels: Record<AssignmentType, string> = {
+  essay: 'Эссе',
   test: 'Тест',
+  table: 'Таблица',
+  scheme: 'Схема',
+  matching: 'Соответствия',
+  qa: 'Ответы на вопросы',
+  quiz: 'Викторина',
+  distribution: 'Распределение',
   practical: 'Практика',
-  project: 'Проект',
+  other: 'Другое',
 }
 
+export const ALL_ASSIGNMENT_TYPES: AssignmentType[] = [
+  'essay',
+  'test',
+  'table',
+  'scheme',
+  'matching',
+  'qa',
+  'quiz',
+  'distribution',
+  'practical',
+  'other',
+]
+
+export const DEFAULT_ENABLED_ASSIGNMENT_TYPES: AssignmentType[] = [
+  'essay',
+  'test',
+  'table',
+  'scheme',
+  'matching',
+  'qa',
+  'quiz',
+  'distribution',
+  'other',
+]
+
 export const dayLabels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб']
+
+export const ACADEMIC_YEARS = ['2025-2026', '2026-2027', '2027-2028', '2028-2029']
+
+export const CURRENT_ACADEMIC_YEAR = '2026-2027'
+
+export const SPECIALTIES = [
+  'Дошкольное образование',
+  'Преподавание в начальных классах',
+  'Физическая культура',
+  'Музыкальное образование',
+  'Специальное дошкольное образование',
+]
 
 /** Пятибалльная шкала (2–5) */
 export const GRADE_MAX = 5
 export const GRADE_MIN = 2
-
-export function normalizePhone(phone: string): string {
-  const digits = phone.replace(/\D/g, '')
-  if (digits.length === 11 && (digits.startsWith('7') || digits.startsWith('8'))) {
-    return digits.slice(1)
-  }
-  return digits
-}
-
-export function phonesMatch(a: string, b: string): boolean {
-  const na = normalizePhone(a)
-  const nb = normalizePhone(b)
-  return na.length > 0 && na === nb
-}
-
-export function formatPhoneDisplay(phone: string): string {
-  const d = normalizePhone(phone)
-  if (d.length === 10) {
-    return `+7 (${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6, 8)}-${d.slice(8)}`
-  }
-  return phone
-}
 
 export function clampGrade(score: number): number {
   return Math.min(GRADE_MAX, Math.max(GRADE_MIN, Math.round(score)))
@@ -91,4 +114,34 @@ export function gradePercent(score: number): number {
 export function averageScore(scores: number[]) {
   if (!scores.length) return 0
   return Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10
+}
+
+export function formatGrade(sub: Pick<Submission, 'gradeMode' | 'score' | 'passed'>): string {
+  if (sub.gradeMode === 'pass_fail') {
+    return sub.passed ? 'Зачёт' : 'Незачёт'
+  }
+  if (sub.score != null) return String(sub.score)
+  return '—'
+}
+
+export function gradeModeLabel(mode: GradeMode): string {
+  return mode === 'pass_fail' ? 'Зачёт / Незачёт' : 'Оценка 2–5'
+}
+
+export function normalizeLogin(login: string): string {
+  return login.trim().toLowerCase()
+}
+
+export function loginsMatch(a: string, b: string): boolean {
+  return normalizeLogin(a) === normalizeLogin(b) && normalizeLogin(a).length > 0
+}
+
+export function migrateLegacyAssignmentType(
+  type?: string
+): AssignmentType | undefined {
+  if (!type) return undefined
+  if (type === 'project') return 'other'
+  if (type in assignmentTypeLabels) return type as AssignmentType
+  if (type === 'essay') return 'essay'
+  return 'other'
 }

@@ -1,0 +1,128 @@
+.chat-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 1rem;
+  min-height: 480px;
+}
+
+.chat-threads {
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.chat-thread-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 0.55rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.chat-thread-item strong {
+  display: block;
+  font-size: 0.9rem;
+}
+
+.chat-thread-item small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.chat-thread-item.active,
+.chat-thread-item:hover {
+  background: var(--bg-muted, rgba(0, 0, 0, 0.04));
+}
+
+.chat-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 480px;
+  max-height: 70vh;
+  padding: 0;
+  overflow: hidden;
+}
+
+.chat-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.chat-panel-header small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow: auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  background: linear-gradient(180deg, rgba(26, 77, 109, 0.03), transparent);
+}
+
+.chat-bubble {
+  max-width: 75%;
+  align-self: flex-start;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px 14px 14px 4px;
+  padding: 0.55rem 0.75rem;
+}
+
+.chat-bubble.mine {
+  align-self: flex-end;
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+  border-radius: 14px 14px 4px 14px;
+}
+
+.chat-bubble p {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
+
+.chat-bubble small {
+  display: block;
+  margin-top: 0.25rem;
+  opacity: 0.7;
+  font-size: 0.7rem;
+}
+
+.chat-compose {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.chat-compose input {
+  flex: 1;
+}
+
+@media (max-width: 800px) {
+  .chat-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .chat-threads {
+    max-height: 180px;
+  }
+}

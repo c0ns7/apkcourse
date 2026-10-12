@@ -19,6 +19,7 @@ const studentNav: NavItem[] = [
   { to: '/student/grades', label: 'Успеваемость', icon: 'chart' },
   { to: '/student/schedule', label: 'Расписание', icon: 'calendar' },
   { to: '/student/announcements', label: 'Объявления', icon: 'megaphone' },
+  { to: '/student/chat', label: 'Чат', icon: 'chat' },
 ]
 
 const teacherNav: NavItem[] = [
@@ -27,6 +28,7 @@ const teacherNav: NavItem[] = [
   { to: '/teacher/students', label: 'Студенты', icon: 'users' },
   { to: '/teacher/grading', label: 'Проверка', icon: 'check' },
   { to: '/teacher/announcements', label: 'Объявления', icon: 'megaphone' },
+  { to: '/teacher/chat', label: 'Чат', icon: 'chat' },
 ]
 
 const adminNav: NavItem[] = [

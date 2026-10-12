@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useApp } from '../../context/AppContext'
-import { formatPhoneDisplay } from '../../utils/helpers'
 
 export function TeacherStudents() {
   const { data, currentUser, assignStudentToTeacher } = useApp()
@@ -58,8 +57,9 @@ export function TeacherStudents() {
             <thead>
               <tr>
                 <th>ФИО</th>
-                <th>Телефон</th>
+                <th>Логин</th>
                 <th>Группа</th>
+                <th>Курс</th>
                 <th>Предметов</th>
               </tr>
             </thead>
@@ -71,8 +71,9 @@ export function TeacherStudents() {
                 return (
                   <tr key={u.id}>
                     <td>{u.fullName}</td>
-                    <td>{formatPhoneDisplay(u.phone)}</td>
+                    <td>{u.login}</td>
                     <td>{u.group || '—'}</td>
+                    <td>{u.course ?? '—'}</td>
                     <td>{subjCount}</td>
                   </tr>
                 )

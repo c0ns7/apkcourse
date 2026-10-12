@@ -2,14 +2,21 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react'
 import type {
   Announcement,
+  AnnouncementAudience,
   AppData,
   Assignment,
+  AssignmentType,
+  Attachment,
+  ChatMessage,
+  ChatThread,
+  GradeMode,
   Role,
   Subject,
   Submission,
@@ -23,25 +30,37 @@ import {
   saveData,
   setSession,
   uid,
+  type RegisterFields,
 } from '../store'
 import { useToast } from './ToastContext'
-import { GRADE_MAX, clampGrade, phonesMatch } from '../utils/helpers'
+import { GRADE_MAX, clampGrade, formatGrade, loginsMatch } from '../utils/helpers'
 
 interface AppContextValue {
   data: AppData
   currentUser: User | null
-  login: (phone: string, password: string) => { error: string } | { user: User }
+  login: (login: string, password: string) => { error: string } | { user: User }
   logout: () => void
-  createUser: (fields: {
-    phone: string
-    password: string
-    fullName: string
-    role: Exclude<Role, 'admin'>
-    group?: string
-  }) => string | null
+  register: (fields: RegisterFields) => string | null
+  createUser: (fields: RegisterFields & { role: Exclude<Role, 'admin'> }) => string | null
   refresh: () => void
   resetDemo: () => void
-  updateProfile: (fields: Partial<Pick<User, 'fullName' | 'phone' | 'bio' | 'group'>>) => void
+  updateProfile: (
+    fields: Partial<
+      Pick<
+        User,
+        | 'fullName'
+        | 'login'
+        | 'bio'
+        | 'group'
+        | 'specialty'
+        | 'course'
+        | 'academicYear'
+        | 'disciplineIds'
+        | 'enabledAssignmentTypes'
+      >
+    >
+  ) => void
+  setEnabledAssignmentTypes: (types: AssignmentType[]) => void
   addSubject: (title: string, description: string, color?: string) => void
   updateSubject: (subject: Subject) => void
   deleteSubject: (subjectId: string) => void
@@ -54,15 +73,31 @@ interface AppContextValue {
   ) => void
   updateAssignment: (assignment: Assignment) => void
   deleteAssignment: (assignmentId: string) => void
-  submitWork: (assignmentId: string, content: string, attachmentName?: string) => void
-  gradeSubmission: (submissionId: string, score: number, feedback: string) => void
+  submitWork: (
+    assignmentId: string,
+    content: string,
+    options?: { answers?: string; attachments?: Attachment[] }
+  ) => void
+  gradeSubmission: (
+    submissionId: string,
+    payload: { gradeMode: GradeMode; score?: number; passed?: boolean; feedback: string }
+  ) => void
   returnSubmission: (submissionId: string, feedback: string) => void
   deleteUser: (userId: string) => void
-  addAnnouncement: (title: string, body: string, subjectId?: string, pinned?: boolean) => void
+  addAnnouncement: (
+    title: string,
+    body: string,
+    audience: AnnouncementAudience,
+    group?: string,
+    pinned?: boolean
+  ) => void
   deleteAnnouncement: (id: string) => void
   markNotificationRead: (id: string) => void
   markAllNotificationsRead: () => void
   notifyUser: (userId: string, title: string, message: string, link?: string) => void
+  getOrCreateChatThread: (teacherId: string, subjectId?: string) => string
+  sendChatMessage: (threadId: string, body: string) => void
+  markThreadRead: (threadId: string) => void
 }
 
 const AppContext = createContext<AppContextValue | null>(null)
@@ -87,33 +122,57 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const refresh = useCallback(() => {
+    const d = loadData()
+    setData(d)
+    const sid = getSession()
+    setCurrentUser(sid ? (d.users.find((u) => u.id === sid) ?? null) : null)
+  }, [])
+
+  // Prototype "realtime": storage events + light poll for multi-tab chat
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'apk-portal-data-v4') refresh()
+    }
+    window.addEventListener('storage', onStorage)
+    const id = window.setInterval(refresh, 4000)
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.clearInterval(id)
+    }
+  }, [refresh])
+
   const notifyUser = useCallback(
     (userId: string, title: string, message: string, link?: string) => {
-      persist({
-        ...data,
-        notifications: [
-          {
-            id: uid(),
-            userId,
-            title,
-            message,
-            read: false,
-            createdAt: new Date().toISOString(),
-            link,
-          },
-          ...data.notifications,
-        ],
+      setData((prev) => {
+        const next = {
+          ...prev,
+          notifications: [
+            {
+              id: uid(),
+              userId,
+              title,
+              message,
+              read: false,
+              createdAt: new Date().toISOString(),
+              link,
+            },
+            ...prev.notifications,
+          ],
+        }
+        saveData(next)
+        return next
       })
     },
-    [data, persist]
+    []
   )
 
   const login = useCallback(
-    (phone: string, password: string) => {
+    (loginName: string, password: string) => {
       const user = data.users.find(
-        (u) => phonesMatch(u.phone, phone) && u.password === password
+        (u) => loginsMatch(u.login, loginName) && u.password === password
       )
-      if (!user) return { error: 'Неверный телефон или пароль' }
+      if (!user) return { error: 'Неверный логин или пароль' }
       setSession(user.id)
       setCurrentUser(user)
       toast(`Добро пожаловать, ${user.fullName.split(' ')[0]}!`)
@@ -128,15 +187,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toast('Вы вышли из системы', 'info')
   }, [toast])
 
-  const createUser = useCallback(
-    (fields: {
-      phone: string
-      password: string
-      fullName: string
-      role: Exclude<Role, 'admin'>
-      group?: string
-    }) => {
+  const register = useCallback(
+    (fields: RegisterFields) => {
       const result = registerUser(data, fields)
+      if ('error' in result) return result.error
+      persist(result.data)
+      setSession(result.user.id)
+      setCurrentUser(result.user)
+      toast(`Добро пожаловать, ${result.user.fullName.split(' ')[0]}!`)
+      return null
+    },
+    [data, persist, toast]
+  )
+
+  const createUser = useCallback(
+    (fields: RegisterFields & { role: Exclude<Role, 'admin'> }) => {
+      const result = registerUser(data, { ...fields, personalDataConsent: true })
       if ('error' in result) return result.error
       persist(result.data)
       toast(`Пользователь ${result.user.fullName} добавлен`)
@@ -145,13 +211,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [data, persist, toast]
   )
 
-  const refresh = useCallback(() => {
-    const d = loadData()
-    setData(d)
-    const sid = getSession()
-    setCurrentUser(sid ? (d.users.find((u) => u.id === sid) ?? null) : null)
-  }, [])
-
   const resetDemo = useCallback(() => {
     const d = resetData()
     setData(d)
@@ -159,15 +218,59 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [toast])
 
   const updateProfile = useCallback(
-    (fields: Partial<Pick<User, 'fullName' | 'phone' | 'bio' | 'group'>>) => {
+    (
+      fields: Partial<
+        Pick<
+          User,
+          | 'fullName'
+          | 'login'
+          | 'bio'
+          | 'group'
+          | 'specialty'
+          | 'course'
+          | 'academicYear'
+          | 'disciplineIds'
+          | 'enabledAssignmentTypes'
+        >
+      >
+    ) => {
       if (!currentUser) return
+      if (fields.login) {
+        const taken = data.users.some(
+          (u) => u.id !== currentUser.id && loginsMatch(u.login, fields.login!)
+        )
+        if (taken) {
+          toast('Этот логин уже занят', 'error')
+          return
+        }
+      }
       persist({
         ...data,
         users: data.users.map((u) =>
-          u.id === currentUser.id ? { ...u, ...fields } : u
+          u.id === currentUser.id
+            ? {
+                ...u,
+                ...fields,
+                login: fields.login ? fields.login.trim().toLowerCase() : u.login,
+              }
+            : u
         ),
       })
       toast('Профиль сохранён')
+    },
+    [currentUser, data, persist, toast]
+  )
+
+  const setEnabledAssignmentTypes = useCallback(
+    (types: AssignmentType[]) => {
+      if (!currentUser || currentUser.role !== 'teacher') return
+      persist({
+        ...data,
+        users: data.users.map((u) =>
+          u.id === currentUser.id ? { ...u, enabledAssignmentTypes: types } : u
+        ),
+      })
+      toast('Настройки кабинета сохранены')
     },
     [currentUser, data, persist, toast]
   )
@@ -183,7 +286,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
         studentIds: [],
         color: color ?? '#1a4d6d',
       }
-      persist({ ...data, subjects: [...data.subjects, subject] })
+      persist({
+        ...data,
+        subjects: [...data.subjects, subject],
+        users: data.users.map((u) =>
+          u.id === currentUser.id
+            ? {
+                ...u,
+                disciplineIds: [...(u.disciplineIds ?? []), subject.id],
+              }
+            : u
+        ),
+      })
       toast('Предмет создан')
     },
     [currentUser, data, persist, toast]
@@ -208,6 +322,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         subjects: data.subjects.filter((s) => s.id !== subjectId),
         assignments: data.assignments.filter((a) => a.subjectId !== subjectId),
         submissions: data.submissions.filter((s) => !assignIds.includes(s.assignmentId)),
+        users: data.users.map((u) => ({
+          ...u,
+          disciplineIds: u.disciplineIds?.filter((id) => id !== subjectId),
+        })),
       })
       toast('Предмет удалён', 'info')
     },
@@ -288,7 +406,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       })
       toast('Задание создано')
     },
-    [data, persist, toast]
+    [data, persist, toast, notifyUser]
   )
 
   const updateAssignment = useCallback(
@@ -317,7 +435,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   )
 
   const submitWork = useCallback(
-    (assignmentId: string, content: string, attachmentName?: string) => {
+    (
+      assignmentId: string,
+      content: string,
+      options?: { answers?: string; attachments?: Attachment[] }
+    ) => {
       if (!currentUser) return
       const assignment = data.assignments.find((a) => a.id === assignmentId)
       const existing = data.submissions.find(
@@ -325,7 +447,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       )
       const submissionUpdate = {
         content,
-        attachmentName,
+        answers: options?.answers,
+        attachments: options?.attachments,
         status: 'submitted' as const,
         submittedAt: new Date().toISOString(),
       }
@@ -365,21 +488,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       toast('Работа отправлена на проверку')
     },
-    [currentUser, data, persist, toast]
+    [currentUser, data, persist, toast, notifyUser]
   )
 
   const gradeSubmission = useCallback(
-    (submissionId: string, score: number, feedback: string) => {
+    (
+      submissionId: string,
+      payload: { gradeMode: GradeMode; score?: number; passed?: boolean; feedback: string }
+    ) => {
       const sub = data.submissions.find((s) => s.id === submissionId)
-      const grade = clampGrade(score)
+      const grade =
+        payload.gradeMode === 'score' && payload.score != null
+          ? clampGrade(payload.score)
+          : undefined
+      const passed = payload.gradeMode === 'pass_fail' ? Boolean(payload.passed) : undefined
       persist({
         ...data,
         submissions: data.submissions.map((s) =>
           s.id === submissionId
             ? {
                 ...s,
+                gradeMode: payload.gradeMode,
                 score: grade,
-                feedback,
+                passed,
+                feedback: payload.feedback,
                 status: 'graded',
                 gradedAt: new Date().toISOString(),
               }
@@ -388,16 +520,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
       })
       if (sub) {
         const assignment = data.assignments.find((a) => a.id === sub.assignmentId)
+        const label = formatGrade({
+          gradeMode: payload.gradeMode,
+          score: grade,
+          passed,
+        })
         notifyUser(
           sub.studentId,
           'Оценка выставлена',
-          `${assignment?.title ?? 'Задание'}: оценка ${grade}`,
+          `${assignment?.title ?? 'Задание'}: ${label}`,
           '/student/grades'
         )
       }
       toast('Оценка сохранена')
     },
-    [data, persist, toast]
+    [data, persist, toast, notifyUser]
   )
 
   const returnSubmission = useCallback(
@@ -407,7 +544,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ...data,
         submissions: data.submissions.map((s) =>
           s.id === submissionId
-            ? { ...s, status: 'returned', feedback, score: undefined, gradedAt: undefined }
+            ? {
+                ...s,
+                status: 'returned',
+                feedback,
+                score: undefined,
+                passed: undefined,
+                gradeMode: undefined,
+                gradedAt: undefined,
+              }
             : s
         ),
       })
@@ -421,7 +566,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       toast('Работа возвращена студенту', 'info')
     },
-    [data, persist, toast]
+    [data, persist, toast, notifyUser]
   )
 
   const deleteUser = useCallback(
@@ -434,6 +579,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
           studentIds: s.studentIds.filter((id) => id !== userId),
         })),
         notifications: data.notifications.filter((n) => n.userId !== userId),
+        chatThreads: data.chatThreads.filter(
+          (t) => t.studentId !== userId && t.teacherId !== userId
+        ),
+        chatMessages: data.chatMessages.filter((m) => {
+          const thread = data.chatThreads.find((t) => t.id === m.threadId)
+          if (!thread) return false
+          return thread.studentId !== userId && thread.teacherId !== userId
+        }),
       })
       toast('Пользователь удалён', 'info')
     },
@@ -441,14 +594,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   )
 
   const addAnnouncement = useCallback(
-    (title: string, body: string, subjectId?: string, pinned = false) => {
+    (
+      title: string,
+      body: string,
+      audience: AnnouncementAudience,
+      group?: string,
+      pinned = false
+    ) => {
       if (!currentUser) return
       const ann: Announcement = {
         id: uid(),
         title,
         body,
         authorId: currentUser.id,
-        subjectId,
+        audience,
+        group: audience === 'group' ? group : undefined,
         createdAt: new Date().toISOString(),
         pinned,
       }
@@ -491,16 +651,96 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })
   }, [currentUser, data, persist])
 
+  const getOrCreateChatThread = useCallback(
+    (otherUserId: string, subjectId?: string) => {
+      if (!currentUser) return ''
+      const studentId = currentUser.role === 'student' ? currentUser.id : otherUserId
+      const teacherId = currentUser.role === 'teacher' ? currentUser.id : otherUserId
+      const existing = data.chatThreads.find(
+        (t) =>
+          t.studentId === studentId &&
+          t.teacherId === teacherId &&
+          (!subjectId || t.subjectId === subjectId)
+      )
+      if (existing) return existing.id
+      const thread: ChatThread = {
+        id: uid(),
+        studentId,
+        teacherId,
+        subjectId,
+        updatedAt: new Date().toISOString(),
+      }
+      persist({ ...data, chatThreads: [thread, ...data.chatThreads] })
+      return thread.id
+    },
+    [currentUser, data, persist]
+  )
+
+  const sendChatMessage = useCallback(
+    (threadId: string, body: string) => {
+      if (!currentUser || !body.trim()) return
+      const msg: ChatMessage = {
+        id: uid(),
+        threadId,
+        senderId: currentUser.id,
+        body: body.trim(),
+        createdAt: new Date().toISOString(),
+        read: false,
+      }
+      const next: AppData = {
+        ...data,
+        chatMessages: [...data.chatMessages, msg],
+        chatThreads: data.chatThreads.map((t) =>
+          t.id === threadId ? { ...t, updatedAt: msg.createdAt } : t
+        ),
+      }
+      persist(next)
+      const thread = data.chatThreads.find((t) => t.id === threadId)
+      if (thread) {
+        const recipientId =
+          currentUser.id === thread.studentId ? thread.teacherId : thread.studentId
+        notifyUser(
+          recipientId,
+          'Новое сообщение',
+          body.trim().slice(0, 80),
+          currentUser.role === 'student' ? '/student/chat' : '/teacher/chat'
+        )
+      }
+    },
+    [currentUser, data, persist, notifyUser]
+  )
+
+  const markThreadRead = useCallback(
+    (threadId: string) => {
+      if (!currentUser) return
+      const hasUnread = data.chatMessages.some(
+        (m) => m.threadId === threadId && !m.read && m.senderId !== currentUser.id
+      )
+      if (!hasUnread) return
+      persist({
+        ...data,
+        chatMessages: data.chatMessages.map((m) =>
+          m.threadId === threadId && m.senderId !== currentUser.id
+            ? { ...m, read: true }
+            : m
+        ),
+      })
+    },
+    [currentUser, data, persist]
+  )
+
   const value = useMemo(
     () => ({
       data,
       currentUser,
       login,
       logout,
+      register,
       createUser,
       refresh,
       resetDemo,
       updateProfile,
+      setEnabledAssignmentTypes,
       addSubject,
       updateSubject,
       deleteSubject,
@@ -519,16 +759,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
       markNotificationRead,
       markAllNotificationsRead,
       notifyUser,
+      getOrCreateChatThread,
+      sendChatMessage,
+      markThreadRead,
     }),
     [
       data,
       currentUser,
       login,
       logout,
+      register,
       createUser,
       refresh,
       resetDemo,
       updateProfile,
+      setEnabledAssignmentTypes,
       addSubject,
       updateSubject,
       deleteSubject,
@@ -547,6 +792,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       markNotificationRead,
       markAllNotificationsRead,
       notifyUser,
+      getOrCreateChatThread,
+      sendChatMessage,
+      markThreadRead,
     ]
   )
 

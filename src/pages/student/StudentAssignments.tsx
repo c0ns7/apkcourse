@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import { PageHeader } from '../../components/PageHeader'
 import { SearchInput } from '../../components/SearchInput'
-import { AttachmentFile } from '../../components/AttachmentFile'
+import { AttachmentList } from '../../components/AttachmentFile'
 import { DeadlineBadge } from '../../components/DeadlineBadge'
 import { EmptyState } from '../../components/EmptyState'
 import { assignmentTypeLabels, formatDate, getDeadlineStatus, GRADE_MAX } from '../../utils/helpers'
@@ -99,15 +99,18 @@ export function StudentAssignments() {
                   </span>
                 )}
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  Срок: {formatDate(a.deadline)} · оценка 2–5
+                  Срок: {formatDate(a.deadline)}
                 </p>
                 <span className={`badge badge-${sub?.status ?? 'pending'}`}>
                   {statusLabels[sub?.status ?? 'pending']}
-                  {sub?.status === 'graded' && sub.score != null && ` · оценка ${sub.score}/${GRADE_MAX}`}
+                  {sub?.status === 'graded' &&
+                    (sub.gradeMode === 'pass_fail'
+                      ? ` · ${sub.passed ? 'Зачёт' : 'Незачёт'}`
+                      : sub.score != null
+                        ? ` · ${sub.score}/${GRADE_MAX}`
+                        : '')}
                 </span>
-                {a.attachmentName && (
-                  <AttachmentFile name={a.attachmentName} label="Документ" />
-                )}
+                <AttachmentList items={a.attachments} />
               </Link>
             )
           })}

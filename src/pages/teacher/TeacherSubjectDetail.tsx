@@ -1,9 +1,14 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
-import type { Assignment } from '../../types'
-import { AttachmentFile } from '../../components/AttachmentFile'
-import { assignmentTypeLabels, GRADE_MAX } from '../../utils/helpers'
+import type { Assignment, AssignmentType, Attachment } from '../../types'
+import { AttachmentEditor } from '../../components/AttachmentEditor'
+import { AttachmentList } from '../../components/AttachmentFile'
+import {
+  DEFAULT_ENABLED_ASSIGNMENT_TYPES,
+  GRADE_MAX,
+  assignmentTypeLabels,
+} from '../../utils/helpers'
 
 export function TeacherSubjectDetail() {
   const { id } = useParams<{ id: string }>()
@@ -21,8 +26,11 @@ export function TeacherSubjectDetail() {
   const [aTitle, setATitle] = useState('')
   const [aDesc, setADesc] = useState('')
   const [aDeadline, setADeadline] = useState('')
-  const [aType, setAType] = useState<Assignment['type']>('essay')
-  const [aAttachment, setAAttachment] = useState('')
+  const [aType, setAType] = useState<AssignmentType>('essay')
+  const [attachments, setAttachments] = useState<Attachment[]>([])
+  const [pairsText, setPairsText] = useState('Беседа — Вопрос-ответ\nДемонстрация — Показ образца')
+  const [questionsText, setQuestionsText] = useState('Вопрос 1?\nВопрос 2?')
+  const [itemsText, setItemsText] = useState('Элемент А\nЭлемент Б\nЭлемент В')
   const [selectedStudent, setSelectedStudent] = useState('')
 
   if (!currentUser || !id) return null
@@ -36,6 +44,11 @@ export function TeacherSubjectDetail() {
       </div>
     )
   }
+
+  const enabledTypes =
+    currentUser.enabledAssignmentTypes?.length
+      ? currentUser.enabledAssignmentTypes
+      : DEFAULT_ENABLED_ASSIGNMENT_TYPES
 
   const students = data.users.filter((u) => u.role === 'student')
   const myStudents = students.filter(
@@ -53,6 +66,33 @@ export function TeacherSubjectDetail() {
     }
   }
 
+  const buildPayload = (): Assignment['payload'] | undefined => {
+    if (aType === 'matching') {
+      const pairs = pairsText
+        .split('\n')
+        .map((line) => line.split(/[—\-–]/).map((x) => x.trim()))
+        .filter((p) => p[0] && p[1])
+        .map(([left, right]) => ({ left, right }))
+      return pairs.length ? { pairs } : undefined
+    }
+    if (aType === 'qa' || aType === 'test' || aType === 'quiz') {
+      const questions = questionsText
+        .split('\n')
+        .map((q) => q.trim())
+        .filter(Boolean)
+        .map((question) => ({ question }))
+      return questions.length ? { questions } : undefined
+    }
+    if (aType === 'distribution') {
+      const items = itemsText
+        .split('\n')
+        .map((x) => x.trim())
+        .filter(Boolean)
+      return items.length ? { items } : undefined
+    }
+    return undefined
+  }
+
   const handleCreateAssignment = (e: React.FormEvent) => {
     e.preventDefault()
     if (!aTitle.trim() || !aDeadline) return
@@ -62,19 +102,23 @@ export function TeacherSubjectDetail() {
       deadline: aDeadline,
       maxScore: GRADE_MAX,
       type: aType,
-      attachmentName: aAttachment.trim() || undefined,
+      attachments: attachments.length ? attachments : undefined,
+      payload: buildPayload(),
     })
     setATitle('')
     setADesc('')
     setADeadline('')
-    setAType('essay')
-    setAAttachment('')
+    setAType(enabledTypes[0] ?? 'essay')
+    setAttachments([])
     setShowAssign(false)
   }
 
   return (
     <div className="page">
-      <Link to="/teacher/subjects" style={{ fontSize: '0.9rem', marginBottom: '1rem', display: 'inline-block' }}>
+      <Link
+        to="/teacher/subjects"
+        style={{ fontSize: '0.9rem', marginBottom: '1rem', display: 'inline-block' }}
+      >
         ← Предметы
       </Link>
       <header className="page-header">
@@ -83,10 +127,18 @@ export function TeacherSubjectDetail() {
       </header>
 
       <div className="tabs">
-        <button type="button" className={`tab ${tab === 'students' ? 'active' : ''}`} onClick={() => setTab('students')}>
+        <button
+          type="button"
+          className={`tab ${tab === 'students' ? 'active' : ''}`}
+          onClick={() => setTab('students')}
+        >
           Студенты ({enrolled.length})
         </button>
-        <button type="button" className={`tab ${tab === 'assignments' ? 'active' : ''}`} onClick={() => setTab('assignments')}>
+        <button
+          type="button"
+          className={`tab ${tab === 'assignments' ? 'active' : ''}`}
+          onClick={() => setTab('assignments')}
+        >
           Задания ({assignments.length})
         </button>
       </div>
@@ -147,10 +199,12 @@ export function TeacherSubjectDetail() {
               {assignments.map((a) => (
                 <div key={a.id} className="card">
                   <h3 style={{ margin: '0 0 0.5rem' }}>{a.title}</h3>
-                  {a.type && <span className="badge badge-submitted">{assignmentTypeLabels[a.type]}</span>}
-                  {a.attachmentName && <AttachmentFile name={a.attachmentName} label="Документ" />}
+                  {a.type && (
+                    <span className="badge badge-submitted">{assignmentTypeLabels[a.type]}</span>
+                  )}
+                  <AttachmentList items={a.attachments} />
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0.5rem 0' }}>
-                    Срок: {new Date(a.deadline).toLocaleDateString('ru-RU')} · оценка по 5-балльной шкале
+                    Срок: {new Date(a.deadline).toLocaleDateString('ru-RU')} · оценка или зачёт
                   </p>
                   <button
                     type="button"
@@ -182,11 +236,6 @@ export function TeacherSubjectDetail() {
                 ))}
               </select>
             </div>
-            {available.length === 0 && (
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                Все доступные студенты уже добавлены. Закрепите студентов в разделе «Мои студенты».
-              </p>
-            )}
             <div className="modal-actions">
               <button type="button" className="btn-secondary" onClick={() => setShowStudent(false)}>
                 Отмена
@@ -201,7 +250,7 @@ export function TeacherSubjectDetail() {
 
       {showAssign && (
         <div className="modal-overlay" onClick={() => setShowAssign(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
             <h2>Новое задание</h2>
             <form onSubmit={handleCreateAssignment}>
               <div className="form-group">
@@ -214,34 +263,58 @@ export function TeacherSubjectDetail() {
               </div>
               <div className="form-group">
                 <label>Срок сдачи</label>
-                <input type="date" value={aDeadline} onChange={(e) => setADeadline(e.target.value)} required />
+                <input
+                  type="date"
+                  value={aDeadline}
+                  onChange={(e) => setADeadline(e.target.value)}
+                  required
+                />
               </div>
-              <p className="form-hint" style={{ margin: '0 0 1rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                Оценка выставляется по 5-балльной шкале (2–5).
-              </p>
               <div className="form-group">
                 <label>Тип задания</label>
-                <select value={aType} onChange={(e) => setAType(e.target.value as Assignment['type'])}>
-                  <option value="essay">Реферат</option>
-                  <option value="test">Тест</option>
-                  <option value="practical">Практика</option>
-                  <option value="project">Проект</option>
+                <select
+                  value={aType}
+                  onChange={(e) => setAType(e.target.value as AssignmentType)}
+                >
+                  {enabledTypes.map((t) => (
+                    <option key={t} value={t}>
+                      {assignmentTypeLabels[t]}
+                    </option>
+                  ))}
                 </select>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0.35rem 0 0' }}>
+                  Настроить список типов можно в профиле (кабинет).
+                </p>
               </div>
+
+              {(aType === 'matching') && (
+                <div className="form-group">
+                  <label>Пары соответствий (строка: Левое — Правое)</label>
+                  <textarea rows={4} value={pairsText} onChange={(e) => setPairsText(e.target.value)} />
+                </div>
+              )}
+              {(aType === 'qa' || aType === 'test' || aType === 'quiz') && (
+                <div className="form-group">
+                  <label>Вопросы (по одному на строку)</label>
+                  <textarea
+                    rows={4}
+                    value={questionsText}
+                    onChange={(e) => setQuestionsText(e.target.value)}
+                  />
+                </div>
+              )}
+              {aType === 'distribution' && (
+                <div className="form-group">
+                  <label>Элементы для распределения</label>
+                  <textarea rows={4} value={itemsText} onChange={(e) => setItemsText(e.target.value)} />
+                </div>
+              )}
+
               <div className="form-group">
-                <label htmlFor="assign-file">Прикрепить документ (задание, методичка)</label>
-                <input
-                  id="assign-file"
-                  type="file"
-                  accept=".pdf,.doc,.docx,.txt,.ppt,.pptx"
-                  onChange={(e) => setAAttachment(e.target.files?.[0]?.name ?? '')}
-                />
-                {aAttachment && (
-                  <p className="file-hint">
-                    Выбран файл: <strong>{aAttachment}</strong>
-                  </p>
-                )}
+                <label>Вложения (ссылки, файлы, фото, презентации)</label>
+                <AttachmentEditor value={attachments} onChange={setAttachments} />
               </div>
+
               <div className="modal-actions">
                 <button type="button" className="btn-secondary" onClick={() => setShowAssign(false)}>
                   Отмена

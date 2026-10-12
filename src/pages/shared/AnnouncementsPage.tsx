@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useApp } from '../../context/AppContext'
+import type { AnnouncementAudience } from '../../types'
 import { PageHeader } from '../../components/PageHeader'
 import { formatDateTime } from '../../utils/helpers'
 import { EmptyState } from '../../components/EmptyState'
@@ -10,22 +11,40 @@ export function AnnouncementsPage({ canCreate = false }: { canCreate?: boolean }
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [pinned, setPinned] = useState(false)
+  const [audience, setAudience] = useState<AnnouncementAudience>('all')
+  const [group, setGroup] = useState('')
 
   if (!currentUser) return null
 
-  const items = [...data.announcements].sort((a, b) => {
-    if (a.pinned && !b.pinned) return -1
-    if (!a.pinned && b.pinned) return 1
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  })
+  const groups = useMemo(() => {
+    const set = new Set(
+      data.users.filter((u) => u.role === 'student' && u.group).map((u) => u.group!)
+    )
+    return Array.from(set).sort()
+  }, [data.users])
+
+  const items = [...data.announcements]
+    .filter((a) => {
+      if (currentUser.role === 'admin' || currentUser.role === 'teacher') return true
+      if (a.audience === 'all') return true
+      return a.group && a.group === currentUser.group
+    })
+    .sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1
+      if (!a.pinned && b.pinned) return 1
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    })
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim()) return
-    addAnnouncement(title.trim(), body.trim(), undefined, pinned)
+    if (audience === 'group' && !group) return
+    addAnnouncement(title.trim(), body.trim(), audience, audience === 'group' ? group : undefined, pinned)
     setTitle('')
     setBody('')
     setPinned(false)
+    setAudience('all')
+    setGroup('')
     setShowModal(false)
   }
 
@@ -48,17 +67,19 @@ export function AnnouncementsPage({ canCreate = false }: { canCreate?: boolean }
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {items.map((a) => {
             const author = data.users.find((u) => u.id === a.authorId)
-            const subject = a.subjectId ? data.subjects.find((s) => s.id === a.subjectId) : null
-            const canDelete =
-              currentUser.role === 'admin' || a.authorId === currentUser.id
+            const canDelete = currentUser.role === 'admin' || a.authorId === currentUser.id
             return (
               <article key={a.id} className={`card announcement-card ${a.pinned ? 'pinned' : ''}`}>
                 <div className="announcement-header">
                   {a.pinned && <span className="badge badge-accent">Закреплено</span>}
+                  {a.audience === 'group' ? (
+                    <span className="badge badge-submitted">Группа {a.group}</span>
+                  ) : (
+                    <span className="badge">Для всех</span>
+                  )}
                   <h3 style={{ margin: '0.5rem 0' }}>{a.title}</h3>
                   <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                    {author?.fullName}
-                    {subject && ` · ${subject.title}`} · {formatDateTime(a.createdAt)}
+                    {author?.fullName} · {formatDateTime(a.createdAt)}
                   </p>
                 </div>
                 <p style={{ whiteSpace: 'pre-wrap', margin: '1rem 0 0' }}>{a.body}</p>
@@ -90,13 +111,46 @@ export function AnnouncementsPage({ canCreate = false }: { canCreate?: boolean }
                 <label>Текст</label>
                 <textarea rows={4} value={body} onChange={(e) => setBody(e.target.value)} required />
               </div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} />
+              <div className="form-group">
+                <label>Аудитория</label>
+                <select
+                  value={audience}
+                  onChange={(e) => setAudience(e.target.value as AnnouncementAudience)}
+                >
+                  <option value="all">Для всех</option>
+                  <option value="group">Для группы</option>
+                </select>
+              </div>
+              {audience === 'group' && (
+                <div className="form-group">
+                  <label>Группа</label>
+                  <select value={group} onChange={(e) => setGroup(e.target.value)} required>
+                    <option value="">Выберите группу...</option>
+                    {groups.map((g) => (
+                      <option key={g} value={g}>
+                        {g}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <label
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}
+              >
+                <input
+                  type="checkbox"
+                  checked={pinned}
+                  onChange={(e) => setPinned(e.target.checked)}
+                />
                 Закрепить
               </label>
               <div className="modal-actions">
-                <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>Отмена</button>
-                <button type="submit" className="btn-primary">Опубликовать</button>
+                <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
+                  Отмена
+                </button>
+                <button type="submit" className="btn-primary">
+                  Опубликовать
+                </button>
               </div>
             </form>
           </div>
