@@ -9,16 +9,6 @@ export function SiteChrome({ children }: { children: ReactNode }) {
         Перейти к основному содержимому
       </a>
 
-      <div className="official-bar" role="banner">
-        <div className="official-bar-inner">
-          <span className="official-flag" aria-hidden />
-          <p>
-            Официальный образовательный портал · субъект РФ · обработка персональных данных
-            в соответствии с 152-ФЗ
-          </p>
-        </div>
-      </div>
-
       <header className="site-header">
         <Link to="/" className="site-brand">
           <span className="logo-mark" aria-hidden>
@@ -26,11 +16,11 @@ export function SiteChrome({ children }: { children: ReactNode }) {
           </span>
           <div>
             <strong>Агинский педагогический колледж</strong>
-            <span>имени Базара Ринчино · образовательный портал</span>
+            <span>имени Базара Ринчино</span>
           </div>
         </Link>
         <nav className="site-header-nav" aria-label="Основная навигация">
-          <Link to="/privacy">Персональные данные</Link>
+          <Link to="/privacy">Конфиденциальность</Link>
           <Link to="/login" className="btn-primary btn-sm">
             Войти
           </Link>
@@ -45,25 +35,14 @@ export function SiteChrome({ children }: { children: ReactNode }) {
         <div className="site-footer-inner">
           <div>
             <strong>АПК им. Б. Ринчино</strong>
-            <p>
-              Образовательный портал. Оператор персональных данных — образовательная организация.
-              Политика обработки ПДн размещена в открытом доступе.
-            </p>
+            <p>Образовательный портал колледжа для студентов и преподавателей.</p>
           </div>
           <div className="site-footer-links">
-            <Link to="/privacy">Обработка персональных данных</Link>
-            <Link to="/login">Вход в личный кабинет</Link>
-            <a
-              href="https://rkn.gov.ru/"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Роскомнадзор
-            </a>
+            <Link to="/privacy">Конфиденциальность</Link>
+            <Link to="/login">Личный кабинет</Link>
           </div>
           <p className="site-footer-copy">
-            © {new Date().getFullYear()} Агинский педагогический колледж им. Базара Ринчино.
-            Версия интерфейса ориентирована на требования доступности и информирования субъектов ПДн.
+            © {new Date().getFullYear()} Агинский педагогический колледж им. Базара Ринчино
           </p>
         </div>
       </footer>

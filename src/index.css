@@ -1,30 +1,29 @@
 :root {
-  /* Официальный стиль образовательного портала (доступность, 152-ФЗ) */
   --font-sans: 'PT Sans', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   --font-display: 'PT Sans', 'Segoe UI', Arial, sans-serif;
-  --font-mono: 'PT Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
-  --bg: #f4f6f8;
+  --font-mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  --bg: #f3f6fa;
   --bg-elevated: #ffffff;
-  --bg-sidebar: linear-gradient(180deg, #00263e 0%, #003a5c 50%, #004d73 100%);
-  --primary: #0050a0;
-  --primary-light: #1a6fc2;
-  --primary-dark: #002b5c;
-  --accent: #c9a227;
-  --accent-soft: #f7f1de;
+  --bg-sidebar: linear-gradient(180deg, #0a2f4a 0%, #123f5c 55%, #1a4f70 100%);
+  --primary: #0b5cab;
+  --primary-light: #2a7fd4;
+  --primary-dark: #063a6e;
+  --accent: #d4a017;
+  --accent-soft: #faf3e0;
   --official-soft: #eaf2f9;
-  --text: #1a1a1a;
-  --text-muted: #4a5568;
-  --border: #d0d7de;
-  --success: #0f7a3a;
-  --warning: #b45309;
-  --danger: #b91c1c;
-  --info: #0050a0;
-  --shadow: 0 2px 8px rgba(0, 43, 92, 0.08);
-  --shadow-lg: 0 12px 32px rgba(0, 43, 92, 0.12);
-  --radius: 6px;
-  --radius-lg: 10px;
+  --text: #1c2430;
+  --text-muted: #5b6777;
+  --border: #d7dee7;
+  --success: #15803d;
+  --warning: #c2410c;
+  --danger: #dc2626;
+  --info: #0b5cab;
+  --shadow: 0 4px 18px rgba(6, 58, 110, 0.08);
+  --shadow-lg: 0 16px 40px rgba(6, 58, 110, 0.12);
+  --radius: 10px;
+  --radius-lg: 14px;
   --sidebar-width: 260px;
-  --focus-ring: 0 0 0 3px rgba(0, 80, 160, 0.35);
+  --focus-ring: 0 0 0 3px rgba(11, 92, 171, 0.28);
 }
 
 *,

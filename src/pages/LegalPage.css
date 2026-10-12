@@ -23,16 +23,7 @@
 .legal-header {
   margin-bottom: 1.5rem;
   padding-bottom: 1.25rem;
-  border-bottom: 3px solid var(--primary);
-}
-
-.legal-kicker {
-  margin: 0 0 0.5rem;
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--primary);
+  border-bottom: 1px solid var(--border);
 }
 
 .legal-header h1 {

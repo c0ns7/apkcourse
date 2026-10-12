@@ -110,7 +110,7 @@ export function Layout() {
             </div>
           </NavLink>
           <Link to="/privacy" className="sidebar-legal" onClick={() => setSidebarOpen(false)}>
-            Персональные данные
+            Конфиденциальность
           </Link>
         </div>
       </aside>

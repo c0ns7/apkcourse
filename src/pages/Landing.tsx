@@ -25,22 +25,21 @@ export function Landing() {
       <div className="landing">
         <section className="hero">
           <div className="hero-content">
-            <p className="hero-tag">Государственное профессиональное образование</p>
+            <p className="hero-tag">Образовательный портал</p>
             <h1>
-              Образовательный портал{' '}
-              <em>Агинского педагогического колледжа</em>
+              Учёба и общение в{' '}
+              <em>одном кабинете</em>
             </h1>
             <p className="hero-desc">
-              Единая цифровая среда для студентов, преподавателей и администрации.
-              Задания, оценки, расписание и объявления — в защищённом личном кабинете.
-              Обработка персональных данных ведётся в соответствии с законодательством РФ.
+              Платформа Агинского педагогического колледжа для студентов, преподавателей
+              и администрации: задания, оценки, расписание и объявления.
             </p>
             <div className="hero-cta">
               <Link to="/login" className="btn-primary btn-lg">
                 Войти в кабинет
               </Link>
-              <Link to="/privacy" className="btn-secondary btn-lg">
-                Политика ПДн
+              <Link to="/login" className="btn-secondary btn-lg">
+                Регистрация
               </Link>
             </div>
             <div className="hero-stats" role="list">
@@ -70,9 +69,6 @@ export function Landing() {
               <div className="mockup-bar">
                 <div style={{ width: '72%' }} />
               </div>
-              <p className="mockup-legal">
-                Доступ по учётной записи. Согласие на обработку ПДн — при регистрации.
-              </p>
             </div>
           </div>
         </section>
@@ -94,16 +90,10 @@ export function Landing() {
 
         <section className="cta-section">
           <div className="cta-card">
-            <h2>Вход для участников образовательного процесса</h2>
-            <p>
-              Зарегистрируйтесь или войдите в личный кабинет. Перед регистрацией ознакомьтесь с{' '}
-              <Link to="/privacy" className="legal-link">
-                политикой обработки персональных данных
-              </Link>
-              .
-            </p>
+            <h2>Готовы начать?</h2>
+            <p>Войдите в личный кабинет или создайте учётную запись на странице входа.</p>
             <Link to="/login" className="btn-accent btn-lg">
-              Войти на портал
+              Перейти ко входу
             </Link>
           </div>
         </section>
