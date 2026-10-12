@@ -134,15 +134,17 @@ export function AnnouncementsPage({ canCreate = false }: { canCreate?: boolean }
                   </select>
                 </div>
               )}
-              <label
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}
-              >
+              <label className="check-option" style={{ marginBottom: '1rem' }}>
                 <input
                   type="checkbox"
                   checked={pinned}
                   onChange={(e) => setPinned(e.target.checked)}
                 />
-                Закрепить
+                <span className="check-mark" aria-hidden />
+                <span className="check-option-text">
+                  Закрепить объявление
+                  <small>Будет показано выше остальных</small>
+                </span>
               </label>
               <div className="modal-actions">
                 <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>

@@ -179,24 +179,32 @@ export function Login() {
             <form onSubmit={handleRegister}>
               <div className="form-group">
                 <label>Роль</label>
-                <div className="auth-role-row">
-                  <label className="checkbox-label">
+                <div className="choice-row">
+                  <label className="radio-option">
                     <input
                       type="radio"
                       name="regRole"
                       checked={regRole === 'student'}
                       onChange={() => setRegRole('student')}
                     />
-                    Студент
+                    <span className="radio-mark" aria-hidden />
+                    <span className="radio-option-text">
+                      Студент
+                      <small>Задания и успеваемость</small>
+                    </span>
                   </label>
-                  <label className="checkbox-label">
+                  <label className="radio-option">
                     <input
                       type="radio"
                       name="regRole"
                       checked={regRole === 'teacher'}
                       onChange={() => setRegRole('teacher')}
                     />
-                    Преподаватель
+                    <span className="radio-mark" aria-hidden />
+                    <span className="radio-option-text">
+                      Преподаватель
+                      <small>Предметы и проверка</small>
+                    </span>
                   </label>
                 </div>
               </div>
@@ -261,13 +269,14 @@ export function Login() {
                   <label>Дисциплины</label>
                   <div className="checkbox-grid">
                     {catalog.map((title) => (
-                      <label key={title} className="checkbox-label">
+                      <label key={title} className="check-option">
                         <input
                           type="checkbox"
                           checked={disciplines.includes(title)}
                           onChange={() => toggleDiscipline(title)}
                         />
-                        {title}
+                        <span className="check-mark" aria-hidden />
+                        <span className="check-option-text">{title}</span>
                       </label>
                     ))}
                   </div>
@@ -312,13 +321,17 @@ export function Login() {
                 />
               </div>
 
-              <label className="checkbox-label consent-label">
+              <label className="consent-box">
                 <input
                   type="checkbox"
                   checked={consent}
                   onChange={(e) => setConsent(e.target.checked)}
                 />
-                Согласен(на) на обработку персональных данных
+                <span className="check-mark" aria-hidden />
+                <span className="check-option-text">
+                  Согласен(на) на обработку персональных данных
+                  <small>Обязательно для регистрации в портале</small>
+                </span>
               </label>
 
               <button type="submit" className="btn-primary btn-block" disabled={!consent}>

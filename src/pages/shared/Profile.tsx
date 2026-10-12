@@ -149,13 +149,14 @@ export function Profile() {
                 </p>
                 <div className="checkbox-grid">
                   {ALL_ASSIGNMENT_TYPES.map((t) => (
-                    <label key={t} className="checkbox-label">
+                    <label key={t} className="check-option">
                       <input
                         type="checkbox"
                         checked={enabledTypes.includes(t)}
                         onChange={() => toggleType(t)}
                       />
-                      {assignmentTypeLabels[t]}
+                      <span className="check-mark" aria-hidden />
+                      <span className="check-option-text">{assignmentTypeLabels[t]}</span>
                     </label>
                   ))}
                 </div>

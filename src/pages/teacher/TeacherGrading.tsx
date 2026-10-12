@@ -243,24 +243,26 @@ export function TeacherGrading() {
                   ) : (
                     <div className="form-group">
                       <label>Результат</label>
-                      <div className="auth-role-row">
-                        <label className="checkbox-label">
+                      <div className="choice-row">
+                        <label className="radio-option">
                           <input
                             type="radio"
                             name="pass"
                             checked={passed}
                             onChange={() => setPassed(true)}
                           />
-                          Зачёт
+                          <span className="radio-mark" aria-hidden />
+                          <span className="radio-option-text">Зачёт</span>
                         </label>
-                        <label className="checkbox-label">
+                        <label className="radio-option">
                           <input
                             type="radio"
                             name="pass"
                             checked={!passed}
                             onChange={() => setPassed(false)}
                           />
-                          Незачёт
+                          <span className="radio-mark" aria-hidden />
+                          <span className="radio-option-text">Незачёт</span>
                         </label>
                       </div>
                     </div>
