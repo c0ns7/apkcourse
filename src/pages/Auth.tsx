@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { SiteChrome } from '../components/SiteChrome'
 import { useApp } from '../context/AppContext'
 import {
   ACADEMIC_YEARS,
@@ -102,6 +103,7 @@ export function Login() {
   }
 
   return (
+    <SiteChrome>
     <div className="auth-page">
       <div className="auth-card card" style={{ maxWidth: tab === 'register' ? 520 : 420 }}>
         <Link to="/" className="auth-back">
@@ -329,8 +331,17 @@ export function Login() {
                 />
                 <span className="check-mark" aria-hidden />
                 <span className="check-option-text">
-                  Согласен(на) на обработку персональных данных
-                  <small>Обязательно для регистрации в портале</small>
+                  Согласен(на) на{' '}
+                  <Link
+                    to="/privacy"
+                    className="legal-link"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    обработку персональных данных
+                  </Link>
+                  <small>Обязательно. Документ откроется в новой вкладке</small>
                 </span>
               </label>
 
@@ -342,5 +353,6 @@ export function Login() {
         )}
       </div>
     </div>
+    </SiteChrome>
   )
 }

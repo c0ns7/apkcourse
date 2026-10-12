@@ -20,6 +20,7 @@ import { TeacherGrading } from './pages/teacher/TeacherGrading'
 import { AdminDashboard } from './pages/admin/AdminDashboard'
 import { AdminUsers } from './pages/admin/AdminUsers'
 import { ChatPage } from './pages/shared/ChatPage'
+import { PrivacyPolicy } from './pages/PrivacyPolicy'
 
 function HomeRedirect() {
   const { currentUser } = useApp()
@@ -34,6 +35,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
 
       <Route
         element={

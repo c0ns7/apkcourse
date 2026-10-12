@@ -109,6 +109,9 @@ export function Layout() {
               <span>{roleLabels[currentUser.role]}</span>
             </div>
           </NavLink>
+          <Link to="/privacy" className="sidebar-legal" onClick={() => setSidebarOpen(false)}>
+            Персональные данные
+          </Link>
         </div>
       </aside>
 

@@ -1,27 +1,30 @@
 :root {
-  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Inter', 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', sans-serif;
-  --font-mono: 'SF Mono', ui-monospace, 'Cascadia Code', 'Segoe UI Mono', Menlo, Monaco, Consolas, monospace;
-  --bg: #eef2f7;
+  /* Официальный стиль образовательного портала (доступность, 152-ФЗ) */
+  --font-sans: 'PT Sans', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --font-display: 'PT Sans', 'Segoe UI', Arial, sans-serif;
+  --font-mono: 'PT Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+  --bg: #f4f6f8;
   --bg-elevated: #ffffff;
-  --bg-sidebar: linear-gradient(180deg, #0c3349 0%, #1a4d6d 45%, #1e5678 100%);
-  --primary: #1a4d6d;
-  --primary-light: #2a7aab;
-  --primary-dark: #0f3d56;
-  --accent: #d4a82a;
-  --accent-soft: #faf3e0;
-  --text: #0f172a;
-  --text-muted: #64748b;
-  --border: #e2e8f0;
-  --success: #16a34a;
-  --warning: #ea580c;
-  --danger: #dc2626;
-  --info: #2563eb;
-  --shadow: 0 4px 24px rgba(15, 61, 86, 0.08);
-  --shadow-lg: 0 20px 50px rgba(15, 61, 86, 0.14);
-  --radius: 12px;
-  --radius-lg: 18px;
+  --bg-sidebar: linear-gradient(180deg, #00263e 0%, #003a5c 50%, #004d73 100%);
+  --primary: #0050a0;
+  --primary-light: #1a6fc2;
+  --primary-dark: #002b5c;
+  --accent: #c9a227;
+  --accent-soft: #f7f1de;
+  --official-soft: #eaf2f9;
+  --text: #1a1a1a;
+  --text-muted: #4a5568;
+  --border: #d0d7de;
+  --success: #0f7a3a;
+  --warning: #b45309;
+  --danger: #b91c1c;
+  --info: #0050a0;
+  --shadow: 0 2px 8px rgba(0, 43, 92, 0.08);
+  --shadow-lg: 0 12px 32px rgba(0, 43, 92, 0.12);
+  --radius: 6px;
+  --radius-lg: 10px;
   --sidebar-width: 260px;
+  --focus-ring: 0 0 0 3px rgba(0, 80, 160, 0.35);
 }
 
 *,
@@ -265,8 +268,19 @@ input, select, textarea {
 
 input:focus, select:focus, textarea:focus {
   outline: none;
-  border-color: var(--primary-light);
-  box-shadow: 0 0 0 3px rgba(42, 122, 171, 0.2);
+  border-color: var(--primary);
+  box-shadow: var(--focus-ring);
+}
+
+:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
 }
 
 label {
@@ -435,25 +449,25 @@ label {
 .consent-box {
   margin: 1rem 0 1.15rem;
   align-items: center;
-  background: linear-gradient(135deg, #fff, var(--accent-soft));
-  border-color: rgba(212, 168, 42, 0.35);
+  background: var(--official-soft);
+  border-color: rgba(0, 80, 160, 0.28);
 }
 
 .consent-box:hover {
-  border-color: rgba(212, 168, 42, 0.65);
-  background: linear-gradient(135deg, #fff, #f7ebc8);
+  border-color: var(--primary);
+  background: #e3eef8;
 }
 
 .consent-box:has(input:checked) {
-  border-color: #c49a1f;
-  background: linear-gradient(135deg, rgba(212, 168, 42, 0.12), rgba(42, 122, 171, 0.08));
-  box-shadow: 0 0 0 3px rgba(212, 168, 42, 0.18);
+  border-color: var(--primary);
+  background: #dceaf7;
+  box-shadow: var(--focus-ring);
 }
 
 .consent-box:has(input:checked) .check-mark {
-  background: linear-gradient(135deg, #c49a1f, var(--accent));
-  border-color: #b88912;
-  box-shadow: 0 2px 8px rgba(196, 154, 31, 0.4);
+  background: var(--primary);
+  border-color: var(--primary-dark);
+  box-shadow: 0 2px 8px rgba(0, 80, 160, 0.35);
 }
 
 /* Fallback for older browsers without :has */

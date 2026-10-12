@@ -1,0 +1,141 @@
+.legal-page {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 3rem;
+}
+
+.legal-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-bottom: 1.25rem;
+}
+
+.legal-breadcrumb a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.legal-header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 3px solid var(--primary);
+}
+
+.legal-kicker {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--primary);
+}
+
+.legal-header h1 {
+  margin: 0 0 0.75rem;
+  font-size: clamp(1.45rem, 3vw, 1.9rem);
+  color: var(--primary-dark);
+  line-height: 1.25;
+}
+
+.legal-meta {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.legal-toc {
+  margin-bottom: 1.25rem;
+}
+
+.legal-toc ol {
+  margin: 0.75rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.legal-toc a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.legal-section {
+  margin-bottom: 1rem;
+}
+
+.legal-section h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.15rem;
+  color: var(--primary-dark);
+}
+
+.legal-section p,
+.legal-section li {
+  color: var(--text);
+  line-height: 1.65;
+}
+
+.legal-section ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.legal-dl {
+  display: grid;
+  grid-template-columns: 11rem 1fr;
+  gap: 0.65rem 1rem;
+  margin: 0;
+}
+
+.legal-dl dt {
+  font-weight: 700;
+  color: var(--primary-dark);
+  font-size: 0.875rem;
+}
+
+.legal-dl dd {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.legal-note {
+  margin-top: 1rem !important;
+  padding: 0.85rem 1rem;
+  background: var(--official-soft);
+  border-left: 4px solid var(--primary);
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.legal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.legal-link {
+  color: var(--primary);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.legal-link:hover {
+  color: var(--primary-light);
+}
+
+@media (max-width: 640px) {
+  .legal-dl {
+    grid-template-columns: 1fr;
+    gap: 0.2rem;
+  }
+
+  .legal-dl dt {
+    margin-top: 0.5rem;
+  }
+}

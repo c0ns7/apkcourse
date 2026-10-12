@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Icon, type IconName } from '../components/Icon'
+import { SiteChrome } from '../components/SiteChrome'
 import './Landing.css'
 
 const features: { icon: IconName; title: string; desc: string }[] = [
@@ -20,83 +21,93 @@ const stats = [
 
 export function Landing() {
   return (
-    <div className="landing">
-      <div className="landing-bg" aria-hidden></div>
-      <header className="landing-header">
-        <div className="landing-logo">
-          <span className="logo-mark">АПК</span>
-          <div>
-            <strong>Агинский педагогический колледж</strong>
-            <span>имени Базара Ринчино</span>
+    <SiteChrome>
+      <div className="landing">
+        <section className="hero">
+          <div className="hero-content">
+            <p className="hero-tag">Государственное профессиональное образование</p>
+            <h1>
+              Образовательный портал{' '}
+              <em>Агинского педагогического колледжа</em>
+            </h1>
+            <p className="hero-desc">
+              Единая цифровая среда для студентов, преподавателей и администрации.
+              Задания, оценки, расписание и объявления — в защищённом личном кабинете.
+              Обработка персональных данных ведётся в соответствии с законодательством РФ.
+            </p>
+            <div className="hero-cta">
+              <Link to="/login" className="btn-primary btn-lg">
+                Войти в кабинет
+              </Link>
+              <Link to="/privacy" className="btn-secondary btn-lg">
+                Политика ПДн
+              </Link>
+            </div>
+            <div className="hero-stats" role="list">
+              {stats.map((s) => (
+                <div key={s.label} role="listitem">
+                  <strong>{s.num}</strong>
+                  <span>{s.label}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="landing-actions">
-          <Link to="/login" className="btn-primary">Войти</Link>
-        </div>
-      </header>
-
-      <section className="hero">
-        <div className="hero-content">
-          <p className="hero-tag">Образовательный портал · 2026</p>
-          <h1>
-            Современное образование <em>Агинского педколледжа</em>
-          </h1>
-          <p className="hero-desc">
-            Единая платформа для студентов, преподавателей и администрации.
-            Задания, оценки, расписание и объявления — всё в одном месте.
-          </p>
-          <div className="hero-cta">
-            <Link to="/login" className="btn-primary btn-lg">Войти в кабинет</Link>
-          </div>
-          <div className="hero-stats">
-            {stats.map((s) => (
-              <div key={s.label}>
-                <strong>{s.num}</strong>
-                <span>{s.label}</span>
+          <div className="hero-visual">
+            <div className="hero-mockup card">
+              <div className="mockup-header">
+                <span className="logo-mark" style={{ width: 32, height: 32, fontSize: '0.65rem' }}>
+                  АПК
+                </span>
+                <span>Личный кабинет студента</span>
               </div>
+              <div className="mockup-row">
+                <span className="badge badge-submitted">Педагогика</span>
+                <span className="badge badge-pending">Не сдано</span>
+              </div>
+              <div className="mockup-row">
+                <span className="badge badge-graded">Оценено · 4/5</span>
+              </div>
+              <div className="mockup-bar">
+                <div style={{ width: '72%' }} />
+              </div>
+              <p className="mockup-legal">
+                Доступ по учётной записи. Согласие на обработку ПДн — при регистрации.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="features-section">
+          <h2>Возможности портала</h2>
+          <div className="features-grid">
+            {features.map((f) => (
+              <article key={f.title} className="feature-card card">
+                <span className="feature-icon">
+                  <Icon name={f.icon} size={28} strokeWidth={1.75} />
+                </span>
+                <h3>{f.title}</h3>
+                <p>{f.desc}</p>
+              </article>
             ))}
           </div>
-        </div>
-        <div className="hero-visual">
-          <div className="hero-mockup card">
-            <div className="mockup-header">
-              <span className="logo-mark" style={{ width: 32, height: 32, fontSize: '0.65rem' }}>АПК</span>
-              <span>Личный кабинет студента</span>
-            </div>
-            <div className="mockup-row"><span className="badge badge-submitted">Педагогика</span><span className="badge badge-pending">Не сдано</span></div>
-            <div className="mockup-row"><span className="badge badge-graded">Оценено · 4/5</span></div>
-            <div className="mockup-bar"><div style={{ width: '72%' }} /></div>
+        </section>
+
+        <section className="cta-section">
+          <div className="cta-card">
+            <h2>Вход для участников образовательного процесса</h2>
+            <p>
+              Зарегистрируйтесь или войдите в личный кабинет. Перед регистрацией ознакомьтесь с{' '}
+              <Link to="/privacy" className="legal-link">
+                политикой обработки персональных данных
+              </Link>
+              .
+            </p>
+            <Link to="/login" className="btn-accent btn-lg">
+              Войти на портал
+            </Link>
           </div>
-        </div>
-      </section>
-
-      <section className="features-section">
-        <h2>Возможности портала</h2>
-        <div className="features-grid">
-          {features.map((f) => (
-            <article key={f.title} className="feature-card card">
-              <span className="feature-icon">
-                <Icon name={f.icon} size={28} strokeWidth={1.75} />
-              </span>
-              <h3>{f.title}</h3>
-              <p>{f.desc}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="cta-section">
-        <div className="cta-card">
-          <h2>Готовы начать?</h2>
-          <p>Войдите в личный кабинет. Аккаунт выдаёт администратор колледжа.</p>
-          <Link to="/login" className="btn-accent btn-lg">Войти на портал</Link>
-        </div>
-      </section>
-
-      <footer className="landing-footer">
-        <p>© 2026 Агинский педагогический колледж им. Базара Ринчино</p>
-        <p className="proto-note">Прототип · данные в localStorage браузера</p>
-      </footer>
-    </div>
+        </section>
+      </div>
+    </SiteChrome>
   )
 }

@@ -1,36 +1,37 @@
 .auth-page {
-  min-height: 100vh;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 2rem;
+  padding: 2rem 1.25rem 3rem;
   background:
-    radial-gradient(ellipse 80% 50% at 10% 0%, rgba(42, 122, 171, 0.12), transparent),
-    radial-gradient(ellipse 60% 40% at 90% 100%, rgba(212, 168, 42, 0.14), transparent),
+    linear-gradient(180deg, var(--official-soft) 0%, transparent 40%),
     var(--bg);
 }
 
 .auth-card {
   width: 100%;
   max-width: 420px;
+  border-top: 4px solid var(--primary);
 }
 
 .auth-card h1 {
   margin: 0.5rem 0 0.25rem;
-  font-size: 1.75rem;
-  color: var(--primary);
+  font-size: 1.65rem;
+  color: var(--primary-dark);
 }
 
 .auth-sub {
   color: var(--text-muted);
   font-size: 0.9rem;
   margin: 0 0 1.5rem;
+  line-height: 1.45;
 }
 
 .auth-back {
   font-size: 0.85rem;
   color: var(--text-muted);
-  text-decoration: none;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .auth-back:hover {
@@ -41,20 +42,13 @@
   margin-top: 0.35rem;
 }
 
-.auth-note {
-  text-align: center;
-  margin-top: 1.25rem;
-  font-size: 0.9rem;
-  color: var(--text-muted);
-}
-
 .auth-tabs {
   display: flex;
   gap: 0.35rem;
   margin: 0.85rem 0 0.65rem;
   padding: 0.3rem;
-  background: #f1f5f9;
-  border-radius: 12px;
+  background: var(--official-soft);
+  border-radius: var(--radius);
   border: 1px solid var(--border);
 }
 
@@ -63,11 +57,11 @@
   border: none;
   background: transparent;
   padding: 0.55rem 0.75rem;
-  border-radius: 9px;
+  border-radius: 4px;
   cursor: pointer;
   color: var(--text-muted);
   font: inherit;
-  font-weight: 600;
+  font-weight: 700;
   min-height: 2.35rem;
   box-shadow: none;
 }
@@ -79,16 +73,18 @@
 
 .auth-tabs button.active {
   background: #fff;
-  color: var(--primary);
-  box-shadow: 0 2px 8px rgba(15, 61, 86, 0.1);
+  color: var(--primary-dark);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
 }
 
 .demo-hint {
   margin-top: 1.25rem;
   padding: 0.9rem 1rem;
-  border-radius: 12px;
-  background: #f8fafc;
+  border-radius: var(--radius);
+  background: var(--official-soft);
   border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
   font-size: 0.85rem;
   line-height: 1.55;
   color: var(--text-muted);
@@ -101,6 +97,10 @@
 .demo-hint code {
   background: #e2e8f0;
   padding: 0.1rem 0.35rem;
-  border-radius: 4px;
+  border-radius: 3px;
   font-size: 0.8rem;
+}
+
+.consent-box .legal-link {
+  white-space: normal;
 }
