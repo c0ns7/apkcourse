@@ -120,9 +120,38 @@
 @media (max-width: 800px) {
   .chat-layout {
     grid-template-columns: 1fr;
+    min-height: auto;
+    gap: 0.75rem;
   }
 
   .chat-threads {
-    max-height: 180px;
+    max-height: 160px;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .chat-thread-item {
+    min-width: 180px;
+    flex-shrink: 0;
+  }
+
+  .chat-panel {
+    min-height: 420px;
+    max-height: calc(100dvh - 280px);
+  }
+
+  .chat-compose {
+    position: sticky;
+    bottom: 0;
+    background: #fff;
+  }
+
+  .chat-compose input {
+    min-height: 44px;
+  }
+
+  .chat-compose button {
+    min-height: 44px;
   }
 }
