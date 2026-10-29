@@ -10,7 +10,7 @@ import {
 } from '../../utils/exportExcel'
 
 export function AdminDashboard() {
-  const { data, resetDemo } = useApp()
+  const { data } = useApp()
   const [year, setYear] = useState<string>('all')
 
   const students = data.users.filter((u) => u.role === 'student')
@@ -99,9 +99,6 @@ export function AdminDashboard() {
               }
             >
               Excel: студенты
-            </button>
-            <button type="button" className="btn-ghost btn-sm" onClick={resetDemo}>
-              Сбросить демо
             </button>
           </div>
         }

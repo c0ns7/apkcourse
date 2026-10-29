@@ -151,28 +151,13 @@
   color: #114477;
 }
 
-.demo-hint {
-  margin-top: 1.5rem;
-  padding: 0.9rem 1rem;
-  border-radius: 4px;
-  background: rgba(0, 0, 0, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+.auth-hint {
+  margin-top: 1.25rem;
   font-size: 0.85rem;
-  line-height: 1.55;
+  line-height: 1.5;
   color: #cfe0f0;
   text-align: left;
-}
-
-.demo-hint strong {
-  color: #fff;
-}
-
-.demo-hint code {
-  background: rgba(255, 255, 255, 0.15);
-  padding: 0.1rem 0.35rem;
-  border-radius: 3px;
-  font-size: 0.8rem;
-  color: #fff;
+  opacity: 0.9;
 }
 
 .auth-card .alert-error {

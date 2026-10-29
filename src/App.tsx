@@ -23,7 +23,14 @@ import { ChatPage } from './pages/shared/ChatPage'
 import { PrivacyPolicy } from './pages/PrivacyPolicy'
 
 function HomeRedirect() {
-  const { currentUser } = useApp()
+  const { currentUser, loading } = useApp()
+  if (loading) {
+    return (
+      <div className="page" style={{ padding: '3rem', textAlign: 'center', color: '#666' }}>
+        Загрузка…
+      </div>
+    )
+  }
   if (!currentUser) return <Landing />
   if (currentUser.role === 'student') return <Navigate to="/student" replace />
   if (currentUser.role === 'teacher') return <Navigate to="/teacher" replace />

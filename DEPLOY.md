@@ -1,90 +1,213 @@
-# Деплой на VPS — apk.c0ns7.ru
+# Деплой АПК на сервер — apk.c0ns7.ru
 
-Статический фронтенд (Vite + React). Бэкенд не нужен: данные в `localStorage`.
-
-Ниже — Ubuntu 22.04/24.04, Nginx, Let's Encrypt.
+Сайт работает как одно Node-приложение: **Express** отдаёт API, загрузки и собранный фронт (`dist`).  
+**Nginx** принимает HTTPS на `apk.c0ns7.ru` и проксирует всё на порт `3000`.
 
 ---
 
-## 1. DNS
+## Что понадобится
 
-В панели домена `c0ns7.ru` создайте запись:
+- VPS с Ubuntu 22.04 / 24.04 и доступом `root` (или sudo)
+- Домен `c0ns7.ru` (управление DNS)
+- IP вашего VPS
 
-| Тип | Имя | Значение | TTL |
-|-----|-----|----------|-----|
-| A   | `apk` | IP вашего VPS | 300–3600 |
+---
 
-Проверка (через 5–30 мин):
+## 1. Привязка домена (DNS)
+
+В панели DNS для зоны `c0ns7.ru` создайте запись:
+
+| Тип | Имя (host) | Значение | TTL |
+|-----|------------|----------|-----|
+| **A** | `apk` | IP вашего VPS | 300–3600 |
+
+В итоге имя **apk.c0ns7.ru** должно указывать на сервер.
+
+Проверка с вашего ПК (через 5–30 минут после сохранения DNS):
 
 ```bash
 ping apk.c0ns7.ru
 # или
-dig +short apk.c0ns7.ru
+nslookup apk.c0ns7.ru
 ```
 
-Должен вернуться IP сервера.
+Должен вернуться IP VPS. **Дальше без этого шага SSL не выпустится.**
 
 ---
 
-## 2. Подготовка сервера
+## 2. Подготовка VPS
 
 ```bash
-ssh root@YOUR_VPS_IP
+ssh root@IP_ВАШЕГО_VPS
 ```
 
 ```bash
 apt update && apt upgrade -y
-apt install -y nginx git curl
-```
+apt install -y nginx git curl build-essential python3
 
-Node.js 20 LTS:
-
-```bash
+# Node.js 20 LTS
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
 apt install -y nodejs
-node -v && npm -v
-```
+node -v   # v20.x
+npm -v
 
-Firewall (если ufw включён):
-
-```bash
+# Firewall
 ufw allow OpenSSH
 ufw allow 'Nginx Full'
-ufw enable
+ufw --force enable
 ufw status
 ```
 
+Пакет `build-essential` нужен для сборки `better-sqlite3`.
+
 ---
 
-## 3. Сборка проекта
+## 3. Загрузка проекта на сервер
+
+### Вариант A — через git (предпочтительно)
 
 ```bash
 mkdir -p /var/www
 cd /var/www
-git clone <URL_РЕПОЗИТОРИЯ> apkcourse
-# или загрузите файлы через scp/rsync
+git clone URL_ВАШЕГО_РЕПОЗИТОРИЯ apkcourse
 cd apkcourse
+```
+
+### Вариант B — с вашего Windows (без git на сервере)
+
+На локальной машине в папке проекта:
+
+```powershell
 npm ci
+npm run server:install
 npm run build
 ```
 
-Готовые файлы: `/var/www/apkcourse/dist`
+Затем скопируйте на сервер (нужны `dist`, `server`, корневые `package.json` и т.д.):
 
-Права:
+```powershell
+scp -r dist server package.json package-lock.json root@IP_ВАШЕГО_VPS:/var/www/apkcourse/
+```
+
+На сервере:
 
 ```bash
-chown -R www-data:www-data /var/www/apkcourse/dist
+mkdir -p /var/www/apkcourse
+cd /var/www/apkcourse/server
+npm ci --omit=dev
 ```
 
 ---
 
-## 4. Nginx
+## 4. Настройка окружения
+
+```bash
+cd /var/www/apkcourse
+npm ci
+npm run server:install
+
+cp server/.env.example server/.env
+nano server/.env
+```
+
+Содержимое `server/.env` для продакшена:
+
+```env
+PORT=3000
+JWT_SECRET=сгенерируйте_длинную_случайную_строку_32+_символов
+ROOT_LOGIN=root
+ROOT_PASSWORD=надёжный_пароль_админа
+NODE_ENV=production
+CLIENT_ORIGIN=https://apk.c0ns7.ru
+```
+
+Сгенерировать секрет можно так:
+
+```bash
+openssl rand -hex 32
+```
+
+Сохраните файл (`Ctrl+O`, Enter, `Ctrl+X` в nano).
+
+---
+
+## 5. Сборка фронта и проверка API
+
+```bash
+cd /var/www/apkcourse
+npm run build
+```
+
+Временный запуск для проверки:
+
+```bash
+cd /var/www/apkcourse/server
+node index.js
+```
+
+В другом SSH-сеансе:
+
+```bash
+curl http://127.0.0.1:3000/api/health
+# {"ok":true,"time":"..."}
+```
+
+В логе должно быть что-то вроде:
+
+```text
+[seed] root account created: login="root"
+APK API listening on http://localhost:3000
+```
+
+Остановите процесс (`Ctrl+C`) — дальше будет systemd.
+
+> Root-аккаунт создаётся **только один раз** при первом старте.  
+> Смена `ROOT_PASSWORD` в `.env` позже **не** меняет пароль уже существующего пользователя в БД.
+
+---
+
+## 6. Автозапуск (systemd)
+
+```bash
+nano /etc/systemd/system/apkcourse.service
+```
+
+```ini
+[Unit]
+Description=APK education portal (apk.c0ns7.ru)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/apkcourse/server
+ExecStart=/usr/bin/node index.js
+Restart=always
+RestartSec=3
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+systemctl daemon-reload
+systemctl enable --now apkcourse
+systemctl status apkcourse
+```
+
+Статус должен быть `active (running)`. Логи:
+
+```bash
+journalctl -u apkcourse -f
+```
+
+---
+
+## 7. Nginx → домен apk.c0ns7.ru
 
 ```bash
 nano /etc/nginx/sites-available/apk.c0ns7.ru
 ```
-
-Содержимое:
 
 ```nginx
 server {
@@ -92,109 +215,113 @@ server {
     listen [::]:80;
     server_name apk.c0ns7.ru;
 
-    root /var/www/apkcourse/dist;
-    index index.html;
+    client_max_body_size 30m;
 
-    # SPA: все маршруты → index.html
     location / {
-        try_files $uri $uri/ /index.html;
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
     }
-
-    # Кэш статики
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?)$ {
-        expires 7d;
-        add_header Cache-Control "public, immutable";
-        try_files $uri =404;
-    }
-
-    gzip on;
-    gzip_types text/plain text/css application/javascript application/json image/svg+xml;
 }
 ```
 
 Включить сайт:
 
 ```bash
-ln -s /etc/nginx/sites-available/apk.c0ns7.ru /etc/nginx/sites-enabled/
+ln -sf /etc/nginx/sites-available/apk.c0ns7.ru /etc/nginx/sites-enabled/
+rm -f /etc/nginx/sites-enabled/default   # если мешает
 nginx -t
 systemctl reload nginx
 ```
 
-Проверка: `http://apk.c0ns7.ru` (пока без HTTPS).
+Проверка по HTTP (DNS уже должен смотреть на этот сервер):
+
+```bash
+curl -I http://apk.c0ns7.ru/api/health
+```
+
+В браузере: http://apk.c0ns7.ru
 
 ---
 
-## 5. HTTPS (Let's Encrypt)
+## 8. HTTPS (Let's Encrypt)
 
 ```bash
 apt install -y certbot python3-certbot-nginx
 certbot --nginx -d apk.c0ns7.ru
 ```
 
-Следуйте подсказкам (email, согласие). Certbot сам поправит Nginx и включит редирект HTTP → HTTPS.
+Укажите email, согласитесь с условиями. Certbot сам поправит Nginx и включит редирект HTTP → HTTPS.
 
-Автообновление сертификата:
+Проверка обновления сертификата:
 
 ```bash
-systemctl status certbot.timer
 certbot renew --dry-run
 ```
 
-После этого сайт: **https://apk.c0ns7.ru**
+Готово: **https://apk.c0ns7.ru**
+
+Вход администратора — логин/пароль из `ROOT_LOGIN` / `ROOT_PASSWORD` в `server/.env`.
+
+Дальше студентов и преподавателей создаёте в панели: **Админ → Пользователи**.
 
 ---
 
-## 6. Обновление сайта
+## 9. Обновление сайта после правок кода
 
 ```bash
 cd /var/www/apkcourse
 git pull
 npm ci
+npm run server:install
 npm run build
-chown -R www-data:www-data dist
-systemctl reload nginx
+systemctl restart apkcourse
 ```
 
----
+Не удаляйте:
 
-## 7. Быстрый деплой без git (с локальной машины)
-
-Собрать локально:
-
-```bash
-npm ci
-npm run build
-```
-
-Залить `dist` на сервер:
-
-```bash
-# PowerShell / Git Bash
-scp -r dist/* root@YOUR_VPS_IP:/var/www/apkcourse/dist/
-```
-
-На сервере:
-
-```bash
-chown -R www-data:www-data /var/www/apkcourse/dist
-systemctl reload nginx
-```
+- `server/data/` — база SQLite (`apk.db`)
+- `server/uploads/` — загруженные файлы
+- `server/.env` — секреты
 
 ---
 
 ## Чеклист
 
-- [ ] A-запись `apk` → IP VPS
-- [ ] Nginx отдаёт `/var/www/apkcourse/dist`
-- [ ] `try_files` для React Router
-- [ ] Certbot SSL для `apk.c0ns7.ru`
-- [ ] Сайт открывается по HTTPS
+1. [ ] A-запись `apk` → IP VPS, `nslookup apk.c0ns7.ru` ок  
+2. [ ] Node 20, nginx, firewall  
+3. [ ] Проект в `/var/www/apkcourse`, `npm run build`  
+4. [ ] `server/.env` с `CLIENT_ORIGIN=https://apk.c0ns7.ru` и сильным `JWT_SECRET`  
+5. [ ] `systemctl status apkcourse` → running  
+6. [ ] Nginx proxy на `127.0.0.1:3000`  
+7. [ ] Certbot SSL для `apk.c0ns7.ru`  
+8. [ ] Вход под root на https://apk.c0ns7.ru/login  
+
+---
 
 ## Типичные проблемы
 
-| Симптом | Что проверить |
-|---------|----------------|
-| DNS не резолвится | A-запись, TTL, `dig apk.c0ns7.ru` |
-| 502 / пустая страница | путь `root`, наличиемое `dist`, `nginx -t` |
-| 404 на `/login` и т.п. | есть ли `try_files ... /index.html` |
-| Certbot падает | DNS уже указывает на VPS, порты 80/443 открыты |
+| Симптом | Что сделать |
+|---------|-------------|
+| DNS не резолвится | Проверить A-запись, подождать TTL, `nslookup` |
+| 502 Bad Gateway | `systemctl status apkcourse`, `curl 127.0.0.1:3000/api/health` |
+| Не ставится better-sqlite3 | `apt install build-essential`, Node 20, `npm run server:install` |
+| 404 на `/login`, `/admin` | Нет `dist` — выполните `npm run build` в корне проекта |
+| Certbot ошибка | DNS уже на VPS, порты 80/443 открыты (`ufw`) |
+| Неверный пароль root | Аккаунт уже в БД; сброс: остановить сервис, удалить пользователя `root` из `server/data/apk.db` или задать новый пароль через SQL/новый админ |
+
+Сброс пароля root вручную (пример):
+
+```bash
+systemctl stop apkcourse
+cd /var/www/apkcourse/server
+# удалить БД только если можно потерять данные:
+# rm -f data/apk.db data/apk.db-*
+# или оставить БД и сменить пароль через node/sqlite
+systemctl start apkcourse
+```

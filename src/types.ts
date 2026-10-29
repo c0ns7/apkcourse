@@ -47,7 +47,8 @@ export interface AssignmentPayload {
 export interface User {
   id: string
   login: string
-  password: string
+  /** Only used client-side when creating accounts; never returned by API */
+  password?: string
   fullName: string
   role: Role
   group?: string

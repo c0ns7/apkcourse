@@ -50,9 +50,10 @@ export function AdminUsers() {
     setFormError('')
   }
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
-    const err = createUser({
+    setFormError('')
+    const err = await createUser({
       login,
       password,
       fullName,

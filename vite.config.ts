@@ -8,10 +8,18 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     open: true,
+    proxy: {
+      '/api': { target: 'http://127.0.0.1:3000', changeOrigin: true },
+      '/uploads': { target: 'http://127.0.0.1:3000', changeOrigin: true },
+    },
   },
   preview: {
     host: true,
     port: 4173,
     strictPort: true,
+    proxy: {
+      '/api': { target: 'http://127.0.0.1:3000', changeOrigin: true },
+      '/uploads': { target: 'http://127.0.0.1:3000', changeOrigin: true },
+    },
   },
 })

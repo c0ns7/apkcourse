@@ -9,7 +9,15 @@ export function ProtectedRoute({
   children: React.ReactNode
   roles?: Role[]
 }) {
-  const { currentUser } = useApp()
+  const { currentUser, loading } = useApp()
+
+  if (loading) {
+    return (
+      <div className="page" style={{ padding: '3rem', textAlign: 'center', color: '#666' }}>
+        Загрузка…
+      </div>
+    )
+  }
 
   if (!currentUser) {
     return <Navigate to="/login" replace />

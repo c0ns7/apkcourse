@@ -18,9 +18,8 @@ export function ChatPage() {
   const [newTeacherId, setNewTeacherId] = useState('')
   const [newStudentId, setNewStudentId] = useState('')
 
-  if (!currentUser) return null
-
   const myThreads = useMemo(() => {
+    if (!currentUser) return []
     return data.chatThreads
       .filter(
         (t) =>
@@ -29,7 +28,7 @@ export function ChatPage() {
       .sort(
         (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
       )
-  }, [data.chatThreads, currentUser.id])
+  }, [data.chatThreads, currentUser])
 
   useEffect(() => {
     if (!activeId && myThreads[0]) setActiveId(myThreads[0].id)
@@ -37,7 +36,9 @@ export function ChatPage() {
 
   useEffect(() => {
     if (activeId) markThreadRead(activeId)
-  }, [activeId, data.chatMessages.length])
+  }, [activeId, data.chatMessages.length, markThreadRead])
+
+  if (!currentUser) return null
 
   const active = myThreads.find((t) => t.id === activeId)
   const messages = data.chatMessages
@@ -69,28 +70,29 @@ export function ChatPage() {
       (m) => m.threadId === threadId && !m.read && m.senderId !== currentUser.id
     ).length
 
-  const startChat = () => {
+  const startChat = async () => {
     const otherId = currentUser.role === 'student' ? newTeacherId : newStudentId
     if (!otherId) return
-    const id = getOrCreateChatThread(otherId)
-    setActiveId(id)
-    setNewTeacherId('')
-    setNewStudentId('')
+    try {
+      const id = await getOrCreateChatThread(otherId)
+      setActiveId(id)
+      setNewTeacherId('')
+      setNewStudentId('')
+    } catch {
+      /* errors surfaced via API */
+    }
   }
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault()
     if (!activeId || !text.trim()) return
-    sendChatMessage(activeId, text)
+    void sendChatMessage(activeId, text)
     setText('')
   }
 
   return (
     <div className="page">
-      <PageHeader
-        title="Чат"
-        subtitle="Связь студента с преподавателем (прототип без сервера)"
-      />
+      <PageHeader title="Чат" subtitle="Связь студента с преподавателем" />
 
       <div className="card" style={{ marginBottom: '1rem' }}>
         <div className="form-row" style={{ alignItems: 'flex-end' }}>
@@ -119,7 +121,7 @@ export function ChatPage() {
               </select>
             </div>
           )}
-          <button type="button" className="btn-primary" onClick={startChat}>
+          <button type="button" className="btn-primary" onClick={() => void startChat()}>
             Открыть
           </button>
         </div>

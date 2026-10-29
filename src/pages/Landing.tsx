@@ -35,7 +35,7 @@ export function Landing() {
           </div>
           <div className="hero-panel card">
             <h2>Быстрый вход</h2>
-            <p>Используйте логин и пароль, выданные администратором, или зарегистрируйтесь.</p>
+            <p>Используйте логин и пароль, выданные администратором колледжа.</p>
             <Link to="/login" className="btn-primary btn-block">
               Перейти ко входу
             </Link>
