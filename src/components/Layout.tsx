@@ -109,7 +109,8 @@ export function Layout() {
                 end={item.end}
                 className={({ isActive }) => `sg-item ${isActive ? 'current' : ''}`}
               >
-                {item.label}
+                <Icon name={item.icon} size={16} strokeWidth={2} />
+                <span>{item.label}</span>
                 {item.to === '/teacher/grading' && gradingCount > 0 && (
                   <span className="sg-badge">{gradingCount}</span>
                 )}
