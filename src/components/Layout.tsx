@@ -93,7 +93,9 @@ export function Layout() {
   const closeMenu = () => setMenuOpen(false)
 
   return (
-    <div className="app-shell">
+    <div
+      className={`app-shell${currentUser.role === 'admin' ? ' app-shell--admin' : ''}`}
+    >
       <header className="sg-header">
         <div className="sg-topbar">
           <Link to={nav[0].to} className="sg-brand" onClick={closeMenu}>

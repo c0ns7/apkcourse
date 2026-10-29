@@ -464,3 +464,66 @@
     display: none !important;
   }
 }
+
+/* Админка: более мягкая и читаемая типографика */
+.app-shell--admin {
+  --font-sans: 'Manrope', 'Source Sans 3', 'Segoe UI', sans-serif;
+  --font-display: 'Manrope', 'Source Sans 3', sans-serif;
+  font-family: var(--font-sans);
+  letter-spacing: -0.01em;
+}
+
+.app-shell--admin .main-content {
+  font-size: 1.05rem;
+  line-height: 1.55;
+}
+
+.app-shell--admin h1,
+.app-shell--admin h2,
+.app-shell--admin h3,
+.app-shell--admin .dash-welcome h1,
+.app-shell--admin .dash-panel-head h2,
+.app-shell--admin .page-header h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.app-shell--admin .dash-stat .num,
+.app-shell--admin .stat-card .num {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.app-shell--admin table {
+  font-size: 0.95rem;
+  letter-spacing: -0.005em;
+}
+
+.app-shell--admin th {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.app-shell--admin td {
+  line-height: 1.45;
+}
+
+.app-shell--admin .sg-item,
+.app-shell--admin .sg-brand-text,
+.app-shell--admin button,
+.app-shell--admin input,
+.app-shell--admin select,
+.app-shell--admin label {
+  font-family: var(--font-sans);
+}
+
+.app-shell--admin .dash-action strong,
+.app-shell--admin .dash-stat .label {
+  letter-spacing: -0.015em;
+}
