@@ -165,8 +165,44 @@ export function initDb() {
     CREATE INDEX IF NOT EXISTS idx_activity_logs_created ON activity_logs(created_at DESC);
   `)
 
+  migrateUserRoles()
   ensureRoot()
   ensureCatalog()
+}
+
+const VALID_ROLES = ['student', 'teacher', 'admin']
+
+/** Нормализует список ролей; минимум одна валидная */
+export function normalizeRoles(roles, fallbackRole = 'student') {
+  const list = Array.isArray(roles) ? roles : []
+  const unique = [...new Set(list.map(String).filter((r) => VALID_ROLES.includes(r)))]
+  if (unique.length) return unique
+  if (VALID_ROLES.includes(fallbackRole)) return [fallbackRole]
+  return ['student']
+}
+
+/** Роль по умолчанию при входе: admin → teacher → student */
+export function pickPrimaryRole(roles) {
+  const order = ['admin', 'teacher', 'student']
+  for (const r of order) {
+    if (roles.includes(r)) return r
+  }
+  return roles[0] || 'student'
+}
+
+function migrateUserRoles() {
+  const cols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name)
+  if (!cols.includes('roles_json')) {
+    db.exec('ALTER TABLE users ADD COLUMN roles_json TEXT')
+  }
+  const rows = db.prepare('SELECT id, role, roles_json FROM users').all()
+  for (const row of rows) {
+    if (row.roles_json) continue
+    db.prepare('UPDATE users SET roles_json = ? WHERE id = ?').run(
+      JSON.stringify(normalizeRoles([row.role], row.role)),
+      row.id
+    )
+  }
 }
 
 export function isRootLogin(login) {
@@ -218,13 +254,14 @@ function ensureRoot() {
 
   const hash = bcrypt.hashSync(password, 10)
   db.prepare(`
-    INSERT INTO users (id, login, password_hash, full_name, role, academic_year, personal_data_consent, created_at)
-    VALUES (?, ?, ?, ?, 'admin', ?, 1, ?)
+    INSERT INTO users (id, login, password_hash, full_name, role, roles_json, academic_year, personal_data_consent, created_at)
+    VALUES (?, ?, ?, ?, 'admin', ?, ?, 1, ?)
   `).run(
     uid(),
     login,
     hash,
     'Root Administrator',
+    JSON.stringify(['admin']),
     '2026-2027',
     new Date().toISOString().slice(0, 10)
   )
@@ -257,13 +294,17 @@ export function parseJson(value, fallback) {
   }
 }
 
-export function mapUser(row) {
+export function mapUser(row, activeRole) {
   if (!row) return null
+  const roles = normalizeRoles(parseJson(row.roles_json, null) || [row.role], row.role)
+  const role =
+    activeRole && roles.includes(activeRole) ? activeRole : pickPrimaryRole(roles)
   return {
     id: row.id,
     login: row.login,
     fullName: row.full_name,
-    role: row.role,
+    role,
+    roles,
     group: row.group_name || undefined,
     teacherId: row.teacher_id || undefined,
     specialty: row.specialty || undefined,

@@ -7,7 +7,7 @@ export function TeacherStudents() {
 
   if (!currentUser) return null
 
-  const allStudents = data.users.filter((u) => u.role === 'student')
+  const allStudents = data.users.filter((u) => u.role === 'student' || u.roles?.includes('student'))
   const myStudents = allStudents.filter((u) => u.teacherId === currentUser.id)
   const unassigned = allStudents.filter((u) => !u.teacherId || u.teacherId === currentUser.id)
 

@@ -8,20 +8,24 @@ import {
   ACADEMIC_YEARS,
   CURRENT_ACADEMIC_YEAR,
   SPECIALTIES,
+  hasRole,
+  userRoles,
 } from '../../utils/helpers'
 
 const roleLabels = { student: 'Студент', teacher: 'Преподаватель', admin: 'Администратор' }
 
 export function AdminUsers() {
-  const { data, deleteUser, createUser, currentUser } = useApp()
+  const { data, deleteUser, createUser, updateUserRoles, currentUser } = useApp()
   const isRoot = Boolean(currentUser?.isRoot)
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<'all' | 'student' | 'teacher' | 'admin'>('all')
   const [showModal, setShowModal] = useState(false)
+  const [editUserId, setEditUserId] = useState<string | null>(null)
+  const [editRoles, setEditRoles] = useState<Role[]>([])
   const [fullName, setFullName] = useState('')
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState<Role>('student')
+  const [roles, setRoles] = useState<Role[]>(['student'])
   const [group, setGroup] = useState('')
   const [specialty, setSpecialty] = useState(SPECIALTIES[0])
   const [course, setCourse] = useState(1)
@@ -30,7 +34,7 @@ export function AdminUsers() {
   const [busy, setBusy] = useState(false)
 
   const filtered = data.users.filter((u) => {
-    if (roleFilter !== 'all' && u.role !== roleFilter) return false
+    if (roleFilter !== 'all' && !hasRole(u, roleFilter)) return false
     const q = search.toLowerCase()
     if (!q) return true
     return (
@@ -44,7 +48,7 @@ export function AdminUsers() {
     setFullName('')
     setLogin('')
     setPassword('')
-    setRole('student')
+    setRoles(['student'])
     setGroup('')
     setSpecialty(SPECIALTIES[0])
     setCourse(1)
@@ -66,20 +70,40 @@ export function AdminUsers() {
     return () => window.removeEventListener('keydown', onKey)
   }, [showModal])
 
+  const toggleRole = (r: Role) => {
+    setRoles((prev) => {
+      if (prev.includes(r)) {
+        if (prev.length === 1) return prev
+        return prev.filter((x) => x !== r)
+      }
+      return [...prev, r]
+    })
+  }
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     setFormError('')
+    if (!roles.length) {
+      setFormError('Выберите хотя бы одну роль')
+      return
+    }
     setBusy(true)
     try {
+      const primary = roles.includes('admin')
+        ? 'admin'
+        : roles.includes('teacher')
+          ? 'teacher'
+          : 'student'
       const err = await createUser({
         login,
         password,
         fullName,
-        role,
-        group: role === 'student' ? group : undefined,
-        specialty: role === 'student' ? specialty : undefined,
-        course: role === 'student' ? course : undefined,
-        academicYear: role === 'student' || role === 'teacher' ? academicYear : academicYear,
+        role: primary,
+        roles,
+        group: roles.includes('student') ? group : undefined,
+        specialty: roles.includes('student') ? specialty : undefined,
+        course: roles.includes('student') ? course : undefined,
+        academicYear,
         personalDataConsent: true,
       })
       if (err) {
@@ -95,9 +119,53 @@ export function AdminUsers() {
   const canDelete = (u: (typeof data.users)[0]) => {
     if (u.id === currentUser?.id) return false
     if (u.isRoot) return false
-    if (u.role === 'admin' && !isRoot) return false
+    if (hasRole(u, 'admin') && !isRoot) return false
     return true
   }
+
+  const canEditRoles = (u: (typeof data.users)[0]) => {
+    if (u.isRoot) return false
+    if (hasRole(u, 'admin') && !isRoot) return false
+    return true
+  }
+
+  const openEditRoles = (u: (typeof data.users)[0]) => {
+    setEditUserId(u.id)
+    setEditRoles(userRoles(u))
+    setFormError('')
+  }
+
+  const toggleEditRole = (r: Role) => {
+    setEditRoles((prev) => {
+      if (prev.includes(r)) {
+        if (prev.length === 1) return prev
+        return prev.filter((x) => x !== r)
+      }
+      return [...prev, r]
+    })
+  }
+
+  const saveEditRoles = async () => {
+    if (!editUserId || !editRoles.length) return
+    setBusy(true)
+    setFormError('')
+    try {
+      const err = await updateUserRoles(editUserId, editRoles)
+      if (err) {
+        setFormError(err)
+        return
+      }
+      setEditUserId(null)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const creatableRoles: Role[] = isRoot
+    ? ['student', 'teacher', 'admin']
+    : ['student', 'teacher']
+
+  const editTarget = editUserId ? data.users.find((u) => u.id === editUserId) : null
 
   return (
     <div className="page">
@@ -140,7 +208,7 @@ export function AdminUsers() {
               <th></th>
               <th>ФИО</th>
               <th>Логин</th>
-              <th>Роль</th>
+              <th>Роли</th>
               <th>Группа</th>
               <th>Год</th>
               <th></th>
@@ -158,11 +226,26 @@ export function AdminUsers() {
                 </td>
                 <td>{u.login}</td>
                 <td>
-                  <span className={`badge badge-${u.role}`}>{roleLabels[u.role]}</span>
+                  <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                    {userRoles(u).map((r) => (
+                      <span key={r} className={`badge badge-${r}`}>
+                        {roleLabels[r]}
+                      </span>
+                    ))}
+                  </span>
                 </td>
                 <td>{u.group || '—'}</td>
                 <td>{u.academicYear || '—'}</td>
-                <td>
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  {canEditRoles(u) && (
+                    <button
+                      type="button"
+                      className="btn-ghost btn-sm"
+                      onClick={() => openEditRoles(u)}
+                    >
+                      Роли
+                    </button>
+                  )}
                   {canDelete(u) && (
                     <button
                       type="button"
@@ -179,6 +262,42 @@ export function AdminUsers() {
           </tbody>
         </table>
       </div>
+
+      {editTarget && (
+        <div className="modal-overlay" onClick={() => setEditUserId(null)} role="presentation">
+          <div
+            className="modal"
+            style={{ maxWidth: 420 }}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-roles-title"
+          >
+            <h2 id="edit-roles-title">Роли: {editTarget.fullName}</h2>
+            {formError && <div className="alert alert-error">{formError}</div>}
+            <div className="filter-chips" style={{ margin: '0 0 1rem' }}>
+              {creatableRoles.map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  className={`chip ${editRoles.includes(r) ? 'active' : ''}`}
+                  onClick={() => toggleEditRole(r)}
+                >
+                  {roleLabels[r]}
+                </button>
+              ))}
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="btn-secondary" onClick={() => setEditUserId(null)}>
+                Отмена
+              </button>
+              <button type="button" className="btn-primary" disabled={busy} onClick={() => void saveEditRoles()}>
+                {busy ? 'Сохранение…' : 'Сохранить'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showModal && (
         <div className="modal-overlay" onClick={closeModal} role="presentation">
@@ -224,18 +343,24 @@ export function AdminUsers() {
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="new-role">Роль</label>
-                <select
-                  id="new-role"
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as Role)}
-                >
-                  <option value="student">Студент</option>
-                  <option value="teacher">Преподаватель</option>
-                  {isRoot && <option value="admin">Администратор</option>}
-                </select>
+                <label>Роли</label>
+                <p style={{ margin: '0 0 0.5rem', fontSize: '0.85rem', opacity: 0.75 }}>
+                  Можно выбрать несколько — пользователь переключит режим в шапке
+                </p>
+                <div className="filter-chips" style={{ margin: 0 }}>
+                  {creatableRoles.map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      className={`chip ${roles.includes(r) ? 'active' : ''}`}
+                      onClick={() => toggleRole(r)}
+                    >
+                      {roleLabels[r]}
+                    </button>
+                  ))}
+                </div>
               </div>
-              {(role === 'student' || role === 'teacher') && (
+              {(roles.includes('student') || roles.includes('teacher')) && (
                 <div className="form-group">
                   <label>Учебный год</label>
                   <select value={academicYear} onChange={(e) => setAcademicYear(e.target.value)}>
@@ -247,7 +372,7 @@ export function AdminUsers() {
                   </select>
                 </div>
               )}
-              {role === 'student' && (
+              {roles.includes('student') && (
                 <>
                   <div className="form-group">
                     <label>Специальность</label>

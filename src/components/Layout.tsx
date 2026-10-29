@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
+import type { Role } from '../types'
+import { roleHomePath, userRoles } from '../utils/helpers'
 import { Icon, type IconName } from './Icon'
 import './Layout.css'
 
@@ -41,13 +43,16 @@ const rootExtraNav: NavItem[] = [
 ]
 
 export function Layout() {
-  const { currentUser, logout, data, markAllNotificationsRead } = useApp()
+  const { currentUser, logout, data, markAllNotificationsRead, switchRole } = useApp()
   const navigate = useNavigate()
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [roleMenuOpen, setRoleMenuOpen] = useState(false)
+  const roleMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setMenuOpen(false)
+    setRoleMenuOpen(false)
   }, [location.pathname])
 
   useEffect(() => {
@@ -57,7 +62,28 @@ export function Layout() {
     }
   }, [menuOpen])
 
+  useEffect(() => {
+    if (!roleMenuOpen) return
+    const onDoc = (e: MouseEvent) => {
+      if (roleMenuRef.current && !roleMenuRef.current.contains(e.target as Node)) {
+        setRoleMenuOpen(false)
+      }
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setRoleMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [roleMenuOpen])
+
   if (!currentUser) return null
+
+  const availableRoles = userRoles(currentUser)
+  const canSwitchRole = availableRoles.length > 1
 
   const nav =
     currentUser.role === 'student'
@@ -91,6 +117,60 @@ export function Layout() {
   }
 
   const closeMenu = () => setMenuOpen(false)
+
+  const handleSwitchRole = async (role: Role) => {
+    if (role === currentUser.role) {
+      setRoleMenuOpen(false)
+      return
+    }
+    const err = await switchRole(role)
+    setRoleMenuOpen(false)
+    if (!err) navigate(roleHomePath[role])
+  }
+
+  const roleSwitcher = canSwitchRole ? (
+    <div className="sg-role-switch" ref={roleMenuRef}>
+      <button
+        type="button"
+        className={`sg-user-chip sg-role-trigger ${roleMenuOpen ? 'open' : ''}`}
+        aria-haspopup="listbox"
+        aria-expanded={roleMenuOpen}
+        onClick={() => setRoleMenuOpen((v) => !v)}
+      >
+        <span className="sg-role-trigger-text">
+          <span className="sg-role-name">{currentUser.fullName.split(' ')[0]}</span>
+          <span className="sg-role-label">{roleLabels[currentUser.role]}</span>
+        </span>
+        <Icon name="chevronDown" size={16} strokeWidth={2.25} />
+      </button>
+      {roleMenuOpen && (
+        <ul className="sg-role-menu" role="listbox" aria-label="Сменить роль">
+          {availableRoles.map((r) => (
+            <li key={r}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={r === currentUser.role}
+                className={r === currentUser.role ? 'active' : ''}
+                onClick={() => void handleSwitchRole(r)}
+              >
+                {roleLabels[r]}
+              </button>
+            </li>
+          ))}
+          <li className="sg-role-menu-sep">
+            <Link to="/profile" onClick={() => setRoleMenuOpen(false)}>
+              Профиль
+            </Link>
+          </li>
+        </ul>
+      )}
+    </div>
+  ) : (
+    <Link to="/profile" className="sg-user-chip sg-desktop-only">
+      {currentUser.fullName.split(' ')[0]}
+    </Link>
+  )
 
   return (
     <div
@@ -130,9 +210,7 @@ export function Layout() {
               <Icon name="bell" size={20} />
               {unread > 0 && <span className="notification-dot" />}
             </Link>
-            <Link to="/profile" className="sg-user-chip sg-desktop-only">
-              {currentUser.fullName.split(' ')[0]}
-            </Link>
+            <div className="sg-desktop-only">{roleSwitcher}</div>
             <button type="button" className="sg-logout sg-desktop-only" onClick={handleLogout}>
               Выход
             </button>
@@ -151,7 +229,6 @@ export function Layout() {
         </div>
       </header>
 
-      {/* Drawer + backdrop outside header stacking context */}
       <div
         className={`sg-drawer-root ${menuOpen ? 'open' : ''}`}
         aria-hidden={!menuOpen}
@@ -173,6 +250,26 @@ export function Layout() {
               ✕
             </button>
           </div>
+          {canSwitchRole && (
+            <div className="sg-drawer-roles">
+              <span className="sg-drawer-roles-label">Режим</span>
+              <div className="sg-drawer-role-chips">
+                {availableRoles.map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    className={`sg-drawer-role-chip ${r === currentUser.role ? 'active' : ''}`}
+                    onClick={() => {
+                      closeMenu()
+                      void handleSwitchRole(r)
+                    }}
+                  >
+                    {roleLabels[r]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <nav className="sg-drawer-nav">
             {nav.map((item) => (
               <NavLink

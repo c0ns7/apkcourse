@@ -13,8 +13,8 @@ export function AdminDashboard() {
   const { data, currentUser } = useApp()
   const [year, setYear] = useState<string>('all')
 
-  const students = data.users.filter((u) => u.role === 'student')
-  const teachers = data.users.filter((u) => u.role === 'teacher')
+  const students = data.users.filter((u) => u.role === 'student' || u.roles?.includes('student'))
+  const teachers = data.users.filter((u) => u.role === 'teacher' || u.roles?.includes('teacher'))
   const pending = data.submissions.filter((s) => s.status === 'submitted').length
   const graded = data.submissions.filter((s) => s.status === 'graded').length
 

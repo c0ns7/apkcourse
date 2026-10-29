@@ -55,6 +55,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ login, password }),
     }),
+  switchRole: (role: string) =>
+    request<AuthResponse>('/api/auth/switch-role', {
+      method: 'POST',
+      body: JSON.stringify({ role }),
+    }),
   me: () => request<{ user: User }>('/api/auth/me'),
   getData: () => request<AppData>('/api/data'),
   updateProfile: (fields: Record<string, unknown>) =>
@@ -66,6 +71,11 @@ export const api = {
     request<DataResponse>('/api/users', {
       method: 'POST',
       body: JSON.stringify(fields),
+    }),
+  updateUserRoles: (id: string, roles: string[]) =>
+    request<DataResponse>(`/api/users/${id}/roles`, {
+      method: 'PATCH',
+      body: JSON.stringify({ roles }),
     }),
   deleteUser: (id: string) =>
     request<DataResponse>(`/api/users/${id}`, { method: 'DELETE' }),

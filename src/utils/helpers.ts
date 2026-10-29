@@ -1,4 +1,19 @@
-import type { AssignmentType, GradeMode, Submission } from '../types'
+import type { AssignmentType, GradeMode, Role, Submission, User } from '../types'
+
+export function userRoles(u: Pick<User, 'role' | 'roles'>): Role[] {
+  if (u.roles?.length) return u.roles
+  return u.role ? [u.role] : []
+}
+
+export function hasRole(u: Pick<User, 'role' | 'roles'>, role: Role): boolean {
+  return userRoles(u).includes(role)
+}
+
+export const roleHomePath: Record<Role, string> = {
+  student: '/student',
+  teacher: '/teacher',
+  admin: '/admin',
+}
 
 export type DeadlineStatus = 'ok' | 'soon' | 'overdue' | 'today'
 

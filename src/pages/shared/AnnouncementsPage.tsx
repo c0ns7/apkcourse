@@ -18,7 +18,9 @@ export function AnnouncementsPage({ canCreate = false }: { canCreate?: boolean }
 
   const groups = useMemo(() => {
     const set = new Set(
-      data.users.filter((u) => u.role === 'student' && u.group).map((u) => u.group!)
+      data.users
+        .filter((u) => (u.role === 'student' || u.roles?.includes('student')) && u.group)
+        .map((u) => u.group!)
     )
     return Array.from(set).sort()
   }, [data.users])

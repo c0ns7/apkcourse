@@ -23,7 +23,8 @@ export function TeacherDashboard() {
   })
 
   const myStudents = data.users.filter(
-    (u) => u.role === 'student' && u.teacherId === currentUser.id
+    (u) =>
+      (u.role === 'student' || u.roles?.includes('student')) && u.teacherId === currentUser.id
   )
 
   const today = new Date().toLocaleDateString('ru-RU', {

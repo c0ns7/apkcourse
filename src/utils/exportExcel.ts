@@ -48,7 +48,8 @@ export function exportStudentAnalyticsToExcel(
 ) {
   const students = data.users.filter(
     (u) =>
-      u.role === 'student' && (!academicYear || academicYear === 'all' || u.academicYear === academicYear)
+      (u.role === 'student' || u.roles?.includes('student')) &&
+      (!academicYear || academicYear === 'all' || u.academicYear === academicYear)
   )
 
   const rows = students.map((s) => {

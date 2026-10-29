@@ -152,6 +152,147 @@
   color: #fff !important;
 }
 
+.sg-role-switch {
+  position: relative;
+}
+
+.sg-role-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font: inherit;
+  max-width: 11rem;
+}
+
+.sg-role-trigger.open,
+.sg-role-trigger:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.sg-role-trigger-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.15;
+  min-width: 0;
+}
+
+.sg-role-name {
+  font-weight: 700;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 8rem;
+}
+
+.sg-role-label {
+  font-size: 0.68rem;
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+.sg-role-trigger svg {
+  flex-shrink: 0;
+  opacity: 0.9;
+  transition: transform 0.15s ease;
+}
+
+.sg-role-trigger.open svg {
+  transform: rotate(180deg);
+}
+
+.sg-role-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 11.5rem;
+  margin: 0;
+  padding: 0.35rem;
+  list-style: none;
+  background: #fff;
+  border: 1px solid rgba(15, 40, 70, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 12px 28px rgba(15, 40, 70, 0.18);
+  z-index: 80;
+}
+
+.sg-role-menu button,
+.sg-role-menu a {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1a2b44;
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.sg-role-menu button:hover,
+.sg-role-menu a:hover {
+  background: rgba(40, 90, 150, 0.08);
+}
+
+.sg-role-menu button.active {
+  background: rgba(40, 90, 150, 0.12);
+  color: #1a4f8a;
+}
+
+.sg-role-menu-sep {
+  border-top: 1px solid rgba(15, 40, 70, 0.1);
+  margin-top: 0.25rem;
+  padding-top: 0.25rem;
+}
+
+.sg-drawer-roles {
+  padding: 0.85rem 1rem 0.35rem;
+  border-bottom: 1px solid rgba(15, 40, 70, 0.08);
+}
+
+.sg-drawer-roles-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #5a6b80;
+  margin-bottom: 0.45rem;
+}
+
+.sg-drawer-role-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.sg-drawer-role-chip {
+  border: 1px solid rgba(15, 40, 70, 0.18);
+  background: #fff;
+  color: #1a2b44;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.sg-drawer-role-chip.active {
+  background: rgba(40, 90, 150, 0.12);
+  border-color: rgba(40, 90, 150, 0.45);
+  color: #1a4f8a;
+}
+
 .sg-logout {
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.35);

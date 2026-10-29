@@ -50,7 +50,10 @@ export interface User {
   /** Only used client-side when creating accounts; never returned by API */
   password?: string
   fullName: string
+  /** Активная роль в текущей сессии */
   role: Role
+  /** Все роли аккаунта (для переключения) */
+  roles?: Role[]
   group?: string
   teacherId?: string
   specialty?: string

@@ -50,7 +50,7 @@ export function TeacherSubjectDetail() {
       ? currentUser.enabledAssignmentTypes
       : DEFAULT_ENABLED_ASSIGNMENT_TYPES
 
-  const students = data.users.filter((u) => u.role === 'student')
+  const students = data.users.filter((u) => u.role === 'student' || u.roles?.includes('student'))
   const myStudents = students.filter(
     (u) => u.teacherId === currentUser.id || subject.studentIds.includes(u.id)
   )

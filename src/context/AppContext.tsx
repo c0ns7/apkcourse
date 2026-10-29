@@ -26,6 +26,7 @@ export type RegisterFields = {
   password: string
   fullName: string
   role: Role
+  roles?: Role[]
   group?: string
   specialty?: string
   course?: number
@@ -41,7 +42,9 @@ interface AppContextValue {
   loading: boolean
   login: (login: string, password: string) => Promise<{ error: string } | { user: User }>
   logout: () => void
+  switchRole: (role: Role) => Promise<string | null>
   createUser: (fields: RegisterFields) => Promise<string | null>
+  updateUserRoles: (id: string, roles: Role[]) => Promise<string | null>
   refresh: () => Promise<void>
   updateProfile: (
     fields: Partial<
@@ -116,7 +119,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setData(next)
     setCurrentUser((prev) => {
       if (!prev) return prev
-      return next.users.find((u) => u.id === prev.id) || prev
+      const fromData = next.users.find((u) => u.id === prev.id)
+      if (!fromData) return prev
+      return {
+        ...fromData,
+        role: prev.role,
+        roles: fromData.roles?.length ? fromData.roles : prev.roles,
+      }
     })
   }, [])
 
@@ -178,12 +187,54 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toast('Вы вышли из системы', 'info')
   }, [toast])
 
+  const switchRole = useCallback(
+    async (role: Role) => {
+      try {
+        const result = await api.switchRole(role)
+        setToken(result.token)
+        setCurrentUser(result.user)
+        toast(
+          role === 'admin'
+            ? 'Режим администратора'
+            : role === 'teacher'
+              ? 'Режим преподавателя'
+              : 'Режим студента'
+        )
+        return null
+      } catch (e) {
+        return e instanceof Error ? e.message : 'Не удалось сменить роль'
+      }
+    },
+    [toast]
+  )
+
   const createUser = useCallback(
     async (fields: RegisterFields) => {
       try {
         const result = await api.createUser({ ...fields, personalDataConsent: true })
         setData(result.data)
         toast(`Пользователь ${fields.fullName} добавлен`)
+        return null
+      } catch (e) {
+        return e instanceof Error ? e.message : 'Ошибка'
+      }
+    },
+    [toast]
+  )
+
+  const updateUserRoles = useCallback(
+    async (id: string, roles: Role[]) => {
+      try {
+        const result = await api.updateUserRoles(id, roles)
+        setData(result.data)
+        setCurrentUser((prev) => {
+          if (!prev || prev.id !== id) return prev
+          const nextRoles = roles.length ? roles : prev.roles
+          const stillActive =
+            nextRoles && nextRoles.includes(prev.role) ? prev.role : nextRoles?.[0] || prev.role
+          return { ...prev, roles: nextRoles, role: stillActive }
+        })
+        toast('Роли обновлены')
         return null
       } catch (e) {
         return e instanceof Error ? e.message : 'Ошибка'
@@ -415,7 +466,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       loading,
       login,
       logout,
+      switchRole,
       createUser,
+      updateUserRoles,
       refresh,
       updateProfile,
       setEnabledAssignmentTypes,
@@ -446,7 +499,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       loading,
       login,
       logout,
+      switchRole,
       createUser,
+      updateUserRoles,
       refresh,
       updateProfile,
       setEnabledAssignmentTypes,

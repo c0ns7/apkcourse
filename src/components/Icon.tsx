@@ -6,6 +6,7 @@ import {
   BookOpen,
   Calendar,
   CheckCircle,
+  ChevronDown,
   Clock,
   Eye,
   EyeOff,
@@ -53,6 +54,7 @@ export type IconName =
   | 'chat'
   | 'eye'
   | 'eyeOff'
+  | 'chevronDown'
 
 const icons: Record<IconName, ComponentType<LucideProps>> = {
   home: Home,
@@ -80,6 +82,7 @@ const icons: Record<IconName, ComponentType<LucideProps>> = {
   chat: MessageCircle,
   eye: Eye,
   eyeOff: EyeOff,
+  chevronDown: ChevronDown,
 }
 
 export function Icon({

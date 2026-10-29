@@ -53,9 +53,9 @@ export function ChatPage() {
       )
     : null
 
-  const teachers = data.users.filter((u) => u.role === 'teacher')
+  const teachers = data.users.filter((u) => u.role === 'teacher' || u.roles?.includes('teacher'))
   const students = data.users.filter((u) => {
-    if (u.role !== 'student') return false
+    if (u.role !== 'student' && !u.roles?.includes('student')) return false
     if (currentUser.role !== 'teacher') return false
     return (
       u.teacherId === currentUser.id ||

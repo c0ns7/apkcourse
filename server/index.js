@@ -18,6 +18,8 @@ import {
   logActivity,
   listActivityLogs,
   isRootLogin,
+  normalizeRoles,
+  pickPrimaryRole,
 } from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -62,12 +64,24 @@ function auth(req, res, next) {
     const payload = jwt.verify(token, JWT_SECRET)
     const row = db.prepare('SELECT * FROM users WHERE id = ?').get(payload.id)
     if (!row) return res.status(401).json({ error: 'Пользователь не найден' })
-    req.user = mapUser(row)
+    req.user = mapUser(row, payload.role)
     req.userRow = row
     next()
   } catch {
     return res.status(401).json({ error: 'Сессия истекла, войдите снова' })
   }
+}
+
+function userHasRole(userOrRow, role) {
+  if (!userOrRow) return false
+  if (Array.isArray(userOrRow.roles)) return userOrRow.roles.includes(role)
+  let fromJson = null
+  try {
+    fromJson = userOrRow.roles_json ? JSON.parse(userOrRow.roles_json) : null
+  } catch {
+    fromJson = null
+  }
+  return normalizeRoles(fromJson || [userOrRow.role], userOrRow.role).includes(role)
 }
 
 function requireRole(...roles) {
@@ -104,7 +118,7 @@ app.post('/api/auth/login', (req, res) => {
   }
   const user = mapUser(row)
   const token = signToken(user)
-  if (user.role === 'teacher' || user.role === 'admin') {
+  if (user.roles.includes('teacher') || user.roles.includes('admin')) {
     logActivity(user, 'Вход в систему', `Роль: ${user.role}`)
   }
   res.json({ token, user: publicUser(user) })
@@ -114,6 +128,19 @@ app.post('/api/auth/register', (_req, res) => {
   res.status(403).json({
     error: 'Самостоятельная регистрация отключена. Обратитесь к администратору.',
   })
+})
+
+app.post('/api/auth/switch-role', auth, (req, res) => {
+  const nextRole = String(req.body.role || '')
+  if (!userHasRole(req.user, nextRole)) {
+    return res.status(400).json({ error: 'У аккаунта нет этой роли' })
+  }
+  const user = { ...req.user, role: nextRole }
+  const token = signToken(user)
+  if (nextRole === 'teacher' || nextRole === 'admin') {
+    logActivity(user, 'Смена роли', `Активная роль: ${nextRole}`)
+  }
+  res.json({ token, user: publicUser(user) })
 })
 
 app.get('/api/auth/me', auth, (req, res) => {
@@ -173,20 +200,25 @@ app.post('/api/users', auth, requireRole('admin'), (req, res) => {
     password,
     fullName,
     role,
+    roles: rolesBody,
     group,
     specialty,
     course,
     academicYear,
   } = req.body
-  if (!login || !password || !fullName || !role) {
+  if (!login || !password || !fullName) {
     return res.status(400).json({ error: 'Заполните обязательные поля' })
   }
-  if (!['student', 'teacher', 'admin'].includes(role)) {
-    return res.status(400).json({ error: 'Некорректная роль' })
+  const roles = normalizeRoles(
+    Array.isArray(rolesBody) && rolesBody.length ? rolesBody : role ? [role] : []
+  )
+  if (!roles.length) {
+    return res.status(400).json({ error: 'Укажите хотя бы одну роль' })
   }
-  if (role === 'admin' && !isRootLogin(req.user.login)) {
+  if (roles.includes('admin') && !isRootLogin(req.user.login)) {
     return res.status(403).json({ error: 'Администраторов может создавать только root' })
   }
+  const primaryRole = pickPrimaryRole(roles)
   const loginNorm = String(login).trim().toLowerCase()
   if (isRootLogin(loginNorm)) {
     return res.status(400).json({ error: 'Логин root зарезервирован' })
@@ -196,22 +228,25 @@ app.post('/api/users', auth, requireRole('admin'), (req, res) => {
   }
 
   const id = uid()
+  const isStudent = roles.includes('student')
+  const isTeacher = roles.includes('teacher')
   db.prepare(`
     INSERT INTO users (
-      id, login, password_hash, full_name, role, group_name, specialty, course,
+      id, login, password_hash, full_name, role, roles_json, group_name, specialty, course,
       academic_year, personal_data_consent, enabled_assignment_types_json, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
   `).run(
     id,
     loginNorm,
     bcrypt.hashSync(password, 10),
     String(fullName).trim(),
-    role,
-    role === 'student' ? group || null : null,
-    role === 'student' ? specialty || null : null,
-    role === 'student' ? Number(course) || null : null,
+    primaryRole,
+    JSON.stringify(roles),
+    isStudent ? group || null : null,
+    isStudent ? specialty || null : null,
+    isStudent ? Number(course) || null : null,
     academicYear || '2026-2027',
-    role === 'teacher'
+    isTeacher
       ? JSON.stringify([
           'essay', 'test', 'table', 'scheme', 'matching', 'qa', 'quiz', 'distribution', 'other',
         ])
@@ -222,9 +257,44 @@ app.post('/api/users', auth, requireRole('admin'), (req, res) => {
   logActivity(
     req.user,
     'Создание пользователя',
-    `${role}: ${String(fullName).trim()} (${loginNorm})`
+    `${roles.join('+')}: ${String(fullName).trim()} (${loginNorm})`
   )
   res.status(201).json({ data: loadAppData() })
+})
+
+app.patch('/api/users/:id/roles', auth, requireRole('admin'), (req, res) => {
+  const target = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id)
+  if (!target) return res.status(404).json({ error: 'Не найден' })
+  if (isRootLogin(target.login)) {
+    return res.status(400).json({ error: 'Роли root менять нельзя' })
+  }
+  const roles = normalizeRoles(req.body.roles)
+  if (!roles.length) return res.status(400).json({ error: 'Укажите хотя бы одну роль' })
+  if (roles.includes('admin') && !isRootLogin(req.user.login)) {
+    return res.status(403).json({ error: 'Роль администратора может назначать только root' })
+  }
+  if (userHasRole(target, 'admin') && !isRootLogin(req.user.login)) {
+    return res.status(403).json({ error: 'Администраторов может изменять только root' })
+  }
+  const primaryRole = pickPrimaryRole(roles)
+  const isTeacher = roles.includes('teacher')
+  const wasTeacher = userHasRole(target, 'teacher')
+  let enabled = target.enabled_assignment_types_json
+  if (isTeacher && !wasTeacher && !enabled) {
+    enabled = JSON.stringify([
+      'essay', 'test', 'table', 'scheme', 'matching', 'qa', 'quiz', 'distribution', 'other',
+    ])
+  }
+  db.prepare(
+    'UPDATE users SET role = ?, roles_json = ?, enabled_assignment_types_json = ? WHERE id = ?'
+  ).run(primaryRole, JSON.stringify(roles), enabled, target.id)
+
+  logActivity(
+    req.user,
+    'Изменение ролей',
+    `${target.full_name} (${target.login}): ${roles.join('+')}`
+  )
+  res.json({ data: loadAppData() })
 })
 
 app.delete('/api/users/:id', auth, requireRole('admin'), (req, res) => {
@@ -234,7 +304,7 @@ app.delete('/api/users/:id', auth, requireRole('admin'), (req, res) => {
   if (isRootLogin(target.login)) {
     return res.status(400).json({ error: 'Нельзя удалить root' })
   }
-  if (target.role === 'admin' && !isRootLogin(req.user.login)) {
+  if (userHasRole(target, 'admin') && !isRootLogin(req.user.login)) {
     return res.status(403).json({ error: 'Администраторов может удалять только root' })
   }
   db.prepare('DELETE FROM users WHERE id = ?').run(target.id)
