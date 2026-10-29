@@ -7,8 +7,6 @@ import { fileURLToPath } from 'url'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import multer from 'multer'
-import { createServer } from 'http'
-import { Server as SocketServer } from 'socket.io'
 import {
   db,
   initDb,
@@ -27,10 +25,6 @@ const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || true
 initDb()
 
 const app = express()
-const httpServer = createServer(app)
-const io = new SocketServer(httpServer, {
-  cors: { origin: CLIENT_ORIGIN, credentials: true },
-})
 
 app.use(cors({ origin: CLIENT_ORIGIN, credentials: true }))
 app.use(express.json({ limit: '10mb' }))
@@ -596,15 +590,6 @@ app.post('/api/chat/threads/:id/messages', auth, (req, res) => {
     req.user.role === 'student' ? '/student/chat' : '/teacher/chat'
   )
 
-  io.to(`user:${recipientId}`).emit('chat:message', {
-    id,
-    threadId: thread.id,
-    senderId: req.user.id,
-    body,
-    createdAt,
-    read: false,
-  })
-
   res.status(201).json({ data: loadAppData() })
 })
 
@@ -635,22 +620,6 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true, time: new Date().toISOString() })
 })
 
-io.use((socket, next) => {
-  try {
-    const token = socket.handshake.auth?.token
-    if (!token) return next(new Error('unauthorized'))
-    const payload = jwt.verify(token, JWT_SECRET)
-    socket.userId = payload.id
-    next()
-  } catch {
-    next(new Error('unauthorized'))
-  }
-})
-
-io.on('connection', (socket) => {
-  socket.join(`user:${socket.userId}`)
-})
-
 // Production: serve frontend build
 const distPath = path.join(__dirname, '..', 'dist')
 if (fs.existsSync(distPath)) {
@@ -660,7 +629,7 @@ if (fs.existsSync(distPath)) {
   })
 }
 
-httpServer.listen(PORT, () => {
+app.listen(PORT, () => {
   const rootLogin = process.env.ROOT_LOGIN || 'root'
   console.log(`APK API listening on http://localhost:${PORT}`)
   console.log(`Root login: ${rootLogin}`)

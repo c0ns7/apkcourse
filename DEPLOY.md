@@ -105,6 +105,7 @@ npm ci --omit=dev
 cd /var/www/apkcourse
 npm ci
 npm run server:install
+# node_modules ставьте ТОЛЬКО на Linux-сервере, не копируйте с Windows
 
 cp server/.env.example server/.env
 nano server/.env
