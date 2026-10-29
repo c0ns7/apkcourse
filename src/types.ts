@@ -63,6 +63,8 @@ export interface User {
   enabledAssignmentTypes?: AssignmentType[]
   bio?: string
   createdAt?: string
+  /** true для учётной записи ROOT_LOGIN */
+  isRoot?: boolean
 }
 
 export interface Subject {

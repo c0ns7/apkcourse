@@ -150,10 +150,64 @@ export function initDb() {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS activity_logs (
+      id TEXT PRIMARY KEY,
+      actor_id TEXT,
+      actor_login TEXT NOT NULL,
+      actor_name TEXT NOT NULL,
+      actor_role TEXT NOT NULL,
+      action TEXT NOT NULL,
+      details TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_activity_logs_created ON activity_logs(created_at DESC);
   `)
 
   ensureRoot()
   ensureCatalog()
+}
+
+export function isRootLogin(login) {
+  const root = (process.env.ROOT_LOGIN || 'root').toLowerCase()
+  return String(login || '').toLowerCase() === root
+}
+
+/** Журнал действий преподавателей и админов (для root) */
+export function logActivity(actor, action, details = '') {
+  if (!actor || actor.role === 'student') return
+  db.prepare(`
+    INSERT INTO activity_logs (id, actor_id, actor_login, actor_name, actor_role, action, details, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    uid(),
+    actor.id || null,
+    actor.login || '?',
+    actor.fullName || actor.full_name || '?',
+    actor.role,
+    action,
+    String(details || '').slice(0, 500),
+    new Date().toISOString()
+  )
+}
+
+export function listActivityLogs(limit = 300) {
+  const rows = db
+    .prepare(
+      `SELECT * FROM activity_logs ORDER BY created_at DESC LIMIT ?`
+    )
+    .all(Math.min(Number(limit) || 300, 1000))
+  return rows.map((r) => ({
+    id: r.id,
+    actorId: r.actor_id || undefined,
+    actorLogin: r.actor_login,
+    actorName: r.actor_name,
+    actorRole: r.actor_role,
+    action: r.action,
+    details: r.details || '',
+    createdAt: r.created_at,
+  }))
 }
 
 function ensureRoot() {
@@ -221,6 +275,7 @@ export function mapUser(row) {
     personalDataConsent: Boolean(row.personal_data_consent),
     bio: row.bio || undefined,
     createdAt: row.created_at,
+    isRoot: isRootLogin(row.login),
   }
 }
 

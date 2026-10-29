@@ -41,9 +41,7 @@ interface AppContextValue {
   loading: boolean
   login: (login: string, password: string) => Promise<{ error: string } | { user: User }>
   logout: () => void
-  createUser: (
-    fields: RegisterFields & { role: Exclude<Role, 'admin'> }
-  ) => Promise<string | null>
+  createUser: (fields: RegisterFields) => Promise<string | null>
   refresh: () => Promise<void>
   updateProfile: (
     fields: Partial<
@@ -181,7 +179,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [toast])
 
   const createUser = useCallback(
-    async (fields: RegisterFields & { role: Exclude<Role, 'admin'> }) => {
+    async (fields: RegisterFields) => {
       try {
         const result = await api.createUser({ ...fields, personalDataConsent: true })
         setData(result.data)

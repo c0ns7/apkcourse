@@ -15,6 +15,9 @@ import {
   loadAppData,
   notify,
   uploadsDir,
+  logActivity,
+  listActivityLogs,
+  isRootLogin,
 } from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -76,6 +79,13 @@ function requireRole(...roles) {
   }
 }
 
+function requireRoot(req, res, next) {
+  if (!req.user || !isRootLogin(req.user.login)) {
+    return res.status(403).json({ error: 'Доступ только для root' })
+  }
+  next()
+}
+
 function publicUser(u) {
   if (!u) return null
   const { password: _p, ...rest } = u
@@ -94,6 +104,9 @@ app.post('/api/auth/login', (req, res) => {
   }
   const user = mapUser(row)
   const token = signToken(user)
+  if (user.role === 'teacher' || user.role === 'admin') {
+    logActivity(user, 'Вход в систему', `Роль: ${user.role}`)
+  }
   res.json({ token, user: publicUser(user) })
 })
 
@@ -149,6 +162,7 @@ app.patch('/api/profile', auth, (req, res) => {
   )
 
   const user = mapUser(db.prepare('SELECT * FROM users WHERE id = ?').get(current.id))
+  logActivity(user, 'Обновление профиля', user?.fullName || '')
   res.json({ user: publicUser(user), data: loadAppData() })
 })
 
@@ -167,10 +181,17 @@ app.post('/api/users', auth, requireRole('admin'), (req, res) => {
   if (!login || !password || !fullName || !role) {
     return res.status(400).json({ error: 'Заполните обязательные поля' })
   }
-  if (!['student', 'teacher'].includes(role)) {
+  if (!['student', 'teacher', 'admin'].includes(role)) {
     return res.status(400).json({ error: 'Некорректная роль' })
   }
-  if (db.prepare('SELECT id FROM users WHERE login = ? COLLATE NOCASE').get(String(login).trim())) {
+  if (role === 'admin' && !isRootLogin(req.user.login)) {
+    return res.status(403).json({ error: 'Администраторов может создавать только root' })
+  }
+  const loginNorm = String(login).trim().toLowerCase()
+  if (isRootLogin(loginNorm)) {
+    return res.status(400).json({ error: 'Логин root зарезервирован' })
+  }
+  if (db.prepare('SELECT id FROM users WHERE login = ? COLLATE NOCASE').get(loginNorm)) {
     return res.status(409).json({ error: 'Пользователь с таким логином уже существует' })
   }
 
@@ -182,7 +203,7 @@ app.post('/api/users', auth, requireRole('admin'), (req, res) => {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
   `).run(
     id,
-    String(login).trim().toLowerCase(),
+    loginNorm,
     bcrypt.hashSync(password, 10),
     String(fullName).trim(),
     role,
@@ -198,16 +219,36 @@ app.post('/api/users', auth, requireRole('admin'), (req, res) => {
     new Date().toISOString().slice(0, 10)
   )
 
+  logActivity(
+    req.user,
+    'Создание пользователя',
+    `${role}: ${String(fullName).trim()} (${loginNorm})`
+  )
   res.status(201).json({ data: loadAppData() })
 })
 
 app.delete('/api/users/:id', auth, requireRole('admin'), (req, res) => {
   const target = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id)
   if (!target) return res.status(404).json({ error: 'Не найден' })
-  if (target.role === 'admin') return res.status(400).json({ error: 'Нельзя удалить администратора' })
   if (target.id === req.user.id) return res.status(400).json({ error: 'Нельзя удалить себя' })
+  if (isRootLogin(target.login)) {
+    return res.status(400).json({ error: 'Нельзя удалить root' })
+  }
+  if (target.role === 'admin' && !isRootLogin(req.user.login)) {
+    return res.status(403).json({ error: 'Администраторов может удалять только root' })
+  }
   db.prepare('DELETE FROM users WHERE id = ?').run(target.id)
+  logActivity(
+    req.user,
+    'Удаление пользователя',
+    `${target.role}: ${target.full_name} (${target.login})`
+  )
   res.json({ data: loadAppData() })
+})
+
+app.get('/api/activity-logs', auth, requireRoot, (req, res) => {
+  const limit = Number(req.query.limit) || 300
+  res.json({ logs: listActivityLogs(limit) })
 })
 
 // ——— Subjects ———
@@ -225,6 +266,7 @@ app.post('/api/subjects', auth, requireRole('teacher'), (req, res) => {
   ids.push(id)
   db.prepare('UPDATE users SET discipline_ids_json = ? WHERE id = ?').run(JSON.stringify(ids), req.user.id)
 
+  logActivity(req.user, 'Создание предмета', title.trim())
   res.status(201).json({ data: loadAppData() })
 })
 
@@ -242,6 +284,7 @@ app.put('/api/subjects/:id', auth, requireRole('teacher', 'admin'), (req, res) =
     req.body.color ?? subject.color,
     subject.id
   )
+  logActivity(req.user, 'Изменение предмета', req.body.title ?? subject.title)
   res.json({ data: loadAppData() })
 })
 
@@ -252,6 +295,7 @@ app.delete('/api/subjects/:id', auth, requireRole('teacher', 'admin'), (req, res
     return res.status(403).json({ error: 'Недостаточно прав' })
   }
   db.prepare('DELETE FROM subjects WHERE id = ?').run(subject.id)
+  logActivity(req.user, 'Удаление предмета', subject.title)
   res.json({ data: loadAppData() })
 })
 
@@ -265,6 +309,8 @@ app.post('/api/subjects/:id/students', auth, requireRole('teacher'), (req, res) 
   db.prepare(`
     INSERT OR IGNORE INTO subject_students (subject_id, student_id) VALUES (?, ?)
   `).run(subject.id, studentId)
+  const st = db.prepare('SELECT full_name FROM users WHERE id = ?').get(studentId)
+  logActivity(req.user, 'Добавление студента к предмету', `${st?.full_name || studentId} → ${subject.title}`)
   res.json({ data: loadAppData() })
 })
 
@@ -277,6 +323,7 @@ app.delete('/api/subjects/:id/students/:studentId', auth, requireRole('teacher')
     subject.id,
     req.params.studentId
   )
+  logActivity(req.user, 'Удаление студента с предмета', `${req.params.studentId} ← ${subject.title}`)
   res.json({ data: loadAppData() })
 })
 
@@ -284,6 +331,7 @@ app.post('/api/students/:id/assign-teacher', auth, requireRole('teacher'), (req,
   const student = db.prepare("SELECT * FROM users WHERE id = ? AND role = 'student'").get(req.params.id)
   if (!student) return res.status(404).json({ error: 'Студент не найден' })
   db.prepare('UPDATE users SET teacher_id = ? WHERE id = ?').run(req.user.id, student.id)
+  logActivity(req.user, 'Закрепление студента', student.full_name)
   res.json({ data: loadAppData() })
 })
 
@@ -330,6 +378,7 @@ app.post('/api/subjects/:id/assignments', auth, requireRole('teacher'), (req, re
     notify(s.student_id, 'Новое задание', title.trim(), `/student/assignment/${assignmentId}`)
   }
 
+  logActivity(req.user, 'Создание задания', `${title.trim()} (${subject.title})`)
   res.status(201).json({ data: loadAppData() })
 })
 
@@ -356,6 +405,7 @@ app.put('/api/assignments/:id', auth, requireRole('teacher'), (req, res) => {
       : assignment.payload_json,
     assignment.id
   )
+  logActivity(req.user, 'Изменение задания', req.body.title ?? assignment.title)
   res.json({ data: loadAppData() })
 })
 
@@ -367,6 +417,7 @@ app.delete('/api/assignments/:id', auth, requireRole('teacher'), (req, res) => {
     return res.status(403).json({ error: 'Недостаточно прав' })
   }
   db.prepare('DELETE FROM assignments WHERE id = ?').run(assignment.id)
+  logActivity(req.user, 'Удаление задания', assignment.title)
   res.json({ data: loadAppData() })
 })
 
@@ -457,6 +508,7 @@ app.post('/api/submissions/:id/grade', auth, requireRole('teacher'), (req, res) 
   const label =
     gradeMode === 'pass_fail' ? (finalPassed ? 'Зачёт' : 'Незачёт') : String(finalScore)
   notify(sub.student_id, 'Оценка выставлена', `${assignment.title}: ${label}`, '/student/grades')
+  logActivity(req.user, 'Оценка работы', `${assignment.title}: ${label}`)
 
   res.json({ data: loadAppData() })
 })
@@ -483,6 +535,7 @@ app.post('/api/submissions/:id/return', auth, requireRole('teacher'), (req, res)
     feedback,
     `/student/assignment/${sub.assignment_id}`
   )
+  logActivity(req.user, 'Возврат работы', assignment.title)
 
   res.json({ data: loadAppData() })
 })
@@ -506,6 +559,7 @@ app.post('/api/announcements', auth, requireRole('teacher', 'admin'), (req, res)
     pinned ? 1 : 0,
     new Date().toISOString()
   )
+  logActivity(req.user, 'Объявление', title.trim())
   res.status(201).json({ data: loadAppData() })
 })
 
@@ -516,6 +570,7 @@ app.delete('/api/announcements/:id', auth, (req, res) => {
     return res.status(403).json({ error: 'Недостаточно прав' })
   }
   db.prepare('DELETE FROM announcements WHERE id = ?').run(ann.id)
+  logActivity(req.user, 'Удаление объявления', ann.title)
   res.json({ data: loadAppData() })
 })
 

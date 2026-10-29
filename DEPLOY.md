@@ -45,7 +45,8 @@ ssh root@IP_ВАШЕГО_VPS
 apt update && apt upgrade -y
 apt install -y nginx git curl build-essential python3
 
-# Node.js 20 LTS
+# Node.js 20 LTS (хватает для текущего better-sqlite3@11)
+# Либо Node 22+, если ставите better-sqlite3@13+
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
 apt install -y nodejs
 node -v   # v20.x
@@ -311,7 +312,8 @@ systemctl restart apkcourse
 |---------|-------------|
 | DNS не резолвится | Проверить A-запись, подождать TTL, `nslookup` |
 | 502 Bad Gateway | `systemctl status apkcourse`, `curl 127.0.0.1:3000/api/health` |
-| Не ставится better-sqlite3 | `apt install build-essential`, Node 20, `npm run server:install` |
+| Не ставится better-sqlite3 | `apt install build-essential python3`, Node 20, `npm run server:install` |
+| `Segmentation fault` при `node index.js` | Частая причина: `better-sqlite3@13` на Node 20 (нужен Node 22+). В проекте стоит `better-sqlite3@11` под Node 20. На сервере: `cd server && rm -rf node_modules package-lock.json && npm install` и проверьте `ls node_modules/better-sqlite3/build/Release/*.node` |
 | 404 на `/login`, `/admin` | Нет `dist` — выполните `npm run build` в корне проекта |
 | Certbot ошибка | DNS уже на VPS, порты 80/443 открыты (`ufw`) |
 | Неверный пароль root | Аккаунт уже в БД; сброс: остановить сервис, удалить пользователя `root` из `server/data/apk.db` или задать новый пароль через SQL/новый админ |

@@ -19,6 +19,7 @@ import { TeacherStudents } from './pages/teacher/TeacherStudents'
 import { TeacherGrading } from './pages/teacher/TeacherGrading'
 import { AdminDashboard } from './pages/admin/AdminDashboard'
 import { AdminUsers } from './pages/admin/AdminUsers'
+import { AdminLogs } from './pages/admin/AdminLogs'
 import { ChatPage } from './pages/shared/ChatPage'
 import { PrivacyPolicy } from './pages/PrivacyPolicy'
 
@@ -189,6 +190,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute roles={['admin']}>
               <AnnouncementsPage canCreate />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="admin/logs"
+          element={
+            <ProtectedRoute roles={['admin']}>
+              <AdminLogs />
             </ProtectedRoute>
           }
         />

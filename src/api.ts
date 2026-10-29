@@ -69,6 +69,19 @@ export const api = {
     }),
   deleteUser: (id: string) =>
     request<DataResponse>(`/api/users/${id}`, { method: 'DELETE' }),
+  getActivityLogs: (limit = 300) =>
+    request<{
+      logs: Array<{
+        id: string
+        actorId?: string
+        actorLogin: string
+        actorName: string
+        actorRole: string
+        action: string
+        details: string
+        createdAt: string
+      }>
+    }>(`/api/activity-logs?limit=${limit}`),
   addSubject: (title: string, description: string, color?: string) =>
     request<DataResponse>('/api/subjects', {
       method: 'POST',

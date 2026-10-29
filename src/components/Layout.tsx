@@ -36,6 +36,10 @@ const adminNav: NavItem[] = [
   { to: '/admin/announcements', label: 'Объявления', icon: 'megaphone' },
 ]
 
+const rootExtraNav: NavItem[] = [
+  { to: '/admin/logs', label: 'Журнал', icon: 'file' },
+]
+
 export function Layout() {
   const { currentUser, logout, data, markAllNotificationsRead } = useApp()
   const navigate = useNavigate()
@@ -60,7 +64,9 @@ export function Layout() {
       ? studentNav
       : currentUser.role === 'teacher'
         ? teacherNav
-        : adminNav
+        : currentUser.isRoot
+          ? [...adminNav, ...rootExtraNav]
+          : adminNav
 
   const mobileTabs = nav.slice(0, 4)
 
