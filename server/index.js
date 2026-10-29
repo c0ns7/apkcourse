@@ -262,21 +262,68 @@ app.post('/api/users', auth, requireRole('admin'), (req, res) => {
   res.status(201).json({ data: loadAppData() })
 })
 
-app.patch('/api/users/:id/roles', auth, requireRole('admin'), (req, res) => {
+app.patch('/api/users/:id', auth, requireRole('admin'), (req, res) => {
   const target = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id)
   if (!target) return res.status(404).json({ error: 'Не найден' })
   if (isRootLogin(target.login)) {
-    return res.status(400).json({ error: 'Роли root менять нельзя' })
-  }
-  const roles = normalizeRoles(req.body.roles)
-  if (!roles.length) return res.status(400).json({ error: 'Укажите хотя бы одну роль' })
-  if (roles.includes('admin') && !isRootLogin(req.user.login)) {
-    return res.status(403).json({ error: 'Роль администратора может назначать только root' })
+    return res.status(400).json({ error: 'Учётную запись root менять нельзя' })
   }
   if (userHasRole(target, 'admin') && !isRootLogin(req.user.login)) {
     return res.status(403).json({ error: 'Администраторов может изменять только root' })
   }
+
+  const {
+    fullName,
+    login,
+    password,
+    roles: rolesBody,
+    group,
+    specialty,
+    course,
+    academicYear,
+  } = req.body || {}
+
+  let existingRoles = null
+  try {
+    existingRoles = target.roles_json ? JSON.parse(target.roles_json) : null
+  } catch {
+    existingRoles = null
+  }
+  const roles = normalizeRoles(
+    Array.isArray(rolesBody) && rolesBody.length ? rolesBody : existingRoles || [target.role]
+  )
+  if (!roles.length) return res.status(400).json({ error: 'Укажите хотя бы одну роль' })
+  if (roles.includes('admin') && !isRootLogin(req.user.login)) {
+    return res.status(403).json({ error: 'Роль администратора может назначать только root' })
+  }
+
+  const name = String(fullName ?? target.full_name).trim()
+  if (!name) return res.status(400).json({ error: 'Укажите ФИО' })
+
+  let loginNorm = target.login
+  if (login != null && String(login).trim()) {
+    loginNorm = String(login).trim().toLowerCase()
+    if (isRootLogin(loginNorm)) {
+      return res.status(400).json({ error: 'Логин root зарезервирован' })
+    }
+    const taken = db
+      .prepare('SELECT id FROM users WHERE login = ? COLLATE NOCASE AND id != ?')
+      .get(loginNorm, target.id)
+    if (taken) return res.status(409).json({ error: 'Пользователь с таким логином уже существует' })
+  }
+
+  let passwordHash = target.password_hash
+  let passwordChanged = false
+  if (password != null && String(password).length > 0) {
+    if (String(password).length < 6) {
+      return res.status(400).json({ error: 'Пароль не короче 6 символов' })
+    }
+    passwordHash = bcrypt.hashSync(String(password), 10)
+    passwordChanged = true
+  }
+
   const primaryRole = pickPrimaryRole(roles)
+  const isStudent = roles.includes('student')
   const isTeacher = roles.includes('teacher')
   const wasTeacher = userHasRole(target, 'teacher')
   let enabled = target.enabled_assignment_types_json
@@ -285,14 +332,40 @@ app.patch('/api/users/:id/roles', auth, requireRole('admin'), (req, res) => {
       'essay', 'test', 'table', 'scheme', 'matching', 'qa', 'quiz', 'distribution', 'other',
     ])
   }
-  db.prepare(
-    'UPDATE users SET role = ?, roles_json = ?, enabled_assignment_types_json = ? WHERE id = ?'
-  ).run(primaryRole, JSON.stringify(roles), enabled, target.id)
+
+  db.prepare(`
+    UPDATE users SET
+      login = ?,
+      password_hash = ?,
+      full_name = ?,
+      role = ?,
+      roles_json = ?,
+      group_name = ?,
+      specialty = ?,
+      course = ?,
+      academic_year = ?,
+      enabled_assignment_types_json = ?
+    WHERE id = ?
+  `).run(
+    loginNorm,
+    passwordHash,
+    name,
+    primaryRole,
+    JSON.stringify(roles),
+    isStudent ? (group != null ? group || null : target.group_name) : null,
+    isStudent ? (specialty != null ? specialty || null : target.specialty) : null,
+    isStudent
+      ? (course != null ? Number(course) || null : target.course)
+      : null,
+    academicYear != null ? academicYear || null : target.academic_year,
+    enabled,
+    target.id
+  )
 
   logActivity(
     req.user,
-    'Изменение ролей',
-    `${target.full_name} (${target.login}): ${roles.join('+')}`
+    'Изменение пользователя',
+    `${name} (${loginNorm}): ${roles.join('+')}${passwordChanged ? ', новый пароль' : ''}`
   )
   res.json({ data: loadAppData() })
 })

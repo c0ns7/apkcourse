@@ -72,10 +72,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(fields),
     }),
-  updateUserRoles: (id: string, roles: string[]) =>
-    request<DataResponse>(`/api/users/${id}/roles`, {
+  updateUser: (id: string, fields: Record<string, unknown>) =>
+    request<DataResponse>(`/api/users/${id}`, {
       method: 'PATCH',
-      body: JSON.stringify({ roles }),
+      body: JSON.stringify(fields),
     }),
   deleteUser: (id: string) =>
     request<DataResponse>(`/api/users/${id}`, { method: 'DELETE' }),

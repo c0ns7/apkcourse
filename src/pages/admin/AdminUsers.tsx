@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext'
 import { PageHeader } from '../../components/PageHeader'
 import { SearchInput } from '../../components/SearchInput'
 import { Avatar } from '../../components/Avatar'
-import type { Role } from '../../types'
+import type { Role, User } from '../../types'
 import {
   ACADEMIC_YEARS,
   CURRENT_ACADEMIC_YEAR,
@@ -15,13 +15,12 @@ import {
 const roleLabels = { student: 'Студент', teacher: 'Преподаватель', admin: 'Администратор' }
 
 export function AdminUsers() {
-  const { data, deleteUser, createUser, updateUserRoles, currentUser } = useApp()
+  const { data, deleteUser, createUser, updateUser, currentUser } = useApp()
   const isRoot = Boolean(currentUser?.isRoot)
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<'all' | 'student' | 'teacher' | 'admin'>('all')
-  const [showModal, setShowModal] = useState(false)
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | null>(null)
   const [editUserId, setEditUserId] = useState<string | null>(null)
-  const [editRoles, setEditRoles] = useState<Role[]>([])
   const [fullName, setFullName] = useState('')
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
@@ -54,21 +53,41 @@ export function AdminUsers() {
     setCourse(1)
     setAcademicYear(CURRENT_ACADEMIC_YEAR)
     setFormError('')
+    setEditUserId(null)
   }
 
   const closeModal = () => {
-    setShowModal(false)
+    setModalMode(null)
     resetForm()
   }
 
   useEffect(() => {
-    if (!showModal) return
+    if (!modalMode) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') closeModal()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [showModal])
+  }, [modalMode])
+
+  const openCreate = () => {
+    resetForm()
+    setModalMode('create')
+  }
+
+  const openEdit = (u: User) => {
+    setEditUserId(u.id)
+    setFullName(u.fullName)
+    setLogin(u.login)
+    setPassword('')
+    setRoles(userRoles(u))
+    setGroup(u.group || '')
+    setSpecialty(u.specialty || SPECIALTIES[0])
+    setCourse(u.course || 1)
+    setAcademicYear(u.academicYear || CURRENT_ACADEMIC_YEAR)
+    setFormError('')
+    setModalMode('edit')
+  }
 
   const toggleRole = (r: Role) => {
     setRoles((prev) => {
@@ -80,35 +99,57 @@ export function AdminUsers() {
     })
   }
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setFormError('')
     if (!roles.length) {
       setFormError('Выберите хотя бы одну роль')
       return
     }
+    if (modalMode === 'create' && password.length < 6) {
+      setFormError('Пароль не короче 6 символов')
+      return
+    }
+    if (modalMode === 'edit' && password && password.length < 6) {
+      setFormError('Новый пароль не короче 6 символов')
+      return
+    }
+
+    const primary = roles.includes('admin')
+      ? 'admin'
+      : roles.includes('teacher')
+        ? 'teacher'
+        : 'student'
+
+    const payload = {
+      login,
+      fullName,
+      role: primary as Role,
+      roles,
+      group: roles.includes('student') ? group : undefined,
+      specialty: roles.includes('student') ? specialty : undefined,
+      course: roles.includes('student') ? course : undefined,
+      academicYear,
+      personalDataConsent: true as const,
+    }
+
     setBusy(true)
     try {
-      const primary = roles.includes('admin')
-        ? 'admin'
-        : roles.includes('teacher')
-          ? 'teacher'
-          : 'student'
-      const err = await createUser({
-        login,
-        password,
-        fullName,
-        role: primary,
-        roles,
-        group: roles.includes('student') ? group : undefined,
-        specialty: roles.includes('student') ? specialty : undefined,
-        course: roles.includes('student') ? course : undefined,
-        academicYear,
-        personalDataConsent: true,
-      })
-      if (err) {
-        setFormError(err)
-        return
+      if (modalMode === 'create') {
+        const err = await createUser({ ...payload, password })
+        if (err) {
+          setFormError(err)
+          return
+        }
+      } else if (modalMode === 'edit' && editUserId) {
+        const err = await updateUser(editUserId, {
+          ...payload,
+          ...(password ? { password } : {}),
+        })
+        if (err) {
+          setFormError(err)
+          return
+        }
       }
       closeModal()
     } finally {
@@ -116,56 +157,22 @@ export function AdminUsers() {
     }
   }
 
-  const canDelete = (u: (typeof data.users)[0]) => {
+  const canManage = (u: User) => {
+    if (u.isRoot) return false
+    if (hasRole(u, 'admin') && !isRoot) return false
+    return true
+  }
+
+  const canDelete = (u: User) => {
     if (u.id === currentUser?.id) return false
-    if (u.isRoot) return false
-    if (hasRole(u, 'admin') && !isRoot) return false
-    return true
-  }
-
-  const canEditRoles = (u: (typeof data.users)[0]) => {
-    if (u.isRoot) return false
-    if (hasRole(u, 'admin') && !isRoot) return false
-    return true
-  }
-
-  const openEditRoles = (u: (typeof data.users)[0]) => {
-    setEditUserId(u.id)
-    setEditRoles(userRoles(u))
-    setFormError('')
-  }
-
-  const toggleEditRole = (r: Role) => {
-    setEditRoles((prev) => {
-      if (prev.includes(r)) {
-        if (prev.length === 1) return prev
-        return prev.filter((x) => x !== r)
-      }
-      return [...prev, r]
-    })
-  }
-
-  const saveEditRoles = async () => {
-    if (!editUserId || !editRoles.length) return
-    setBusy(true)
-    setFormError('')
-    try {
-      const err = await updateUserRoles(editUserId, editRoles)
-      if (err) {
-        setFormError(err)
-        return
-      }
-      setEditUserId(null)
-    } finally {
-      setBusy(false)
-    }
+    return canManage(u)
   }
 
   const creatableRoles: Role[] = isRoot
     ? ['student', 'teacher', 'admin']
     : ['student', 'teacher']
 
-  const editTarget = editUserId ? data.users.find((u) => u.id === editUserId) : null
+  const isEdit = modalMode === 'edit'
 
   return (
     <div className="page">
@@ -173,14 +180,7 @@ export function AdminUsers() {
         title="Пользователи"
         subtitle={`Всего: ${data.users.length}`}
         actions={
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={() => {
-              resetForm()
-              setShowModal(true)
-            }}
-          >
+          <button type="button" className="btn-primary" onClick={openCreate}>
             Добавить пользователя
           </button>
         }
@@ -237,13 +237,13 @@ export function AdminUsers() {
                 <td>{u.group || '—'}</td>
                 <td>{u.academicYear || '—'}</td>
                 <td style={{ whiteSpace: 'nowrap' }}>
-                  {canEditRoles(u) && (
+                  {canManage(u) && (
                     <button
                       type="button"
                       className="btn-ghost btn-sm"
-                      onClick={() => openEditRoles(u)}
+                      onClick={() => openEdit(u)}
                     >
-                      Роли
+                      Редактировать
                     </button>
                   )}
                   {canDelete(u) && (
@@ -263,43 +263,7 @@ export function AdminUsers() {
         </table>
       </div>
 
-      {editTarget && (
-        <div className="modal-overlay" onClick={() => setEditUserId(null)} role="presentation">
-          <div
-            className="modal"
-            style={{ maxWidth: 420 }}
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="edit-roles-title"
-          >
-            <h2 id="edit-roles-title">Роли: {editTarget.fullName}</h2>
-            {formError && <div className="alert alert-error">{formError}</div>}
-            <div className="filter-chips" style={{ margin: '0 0 1rem' }}>
-              {creatableRoles.map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  className={`chip ${editRoles.includes(r) ? 'active' : ''}`}
-                  onClick={() => toggleEditRole(r)}
-                >
-                  {roleLabels[r]}
-                </button>
-              ))}
-            </div>
-            <div className="modal-actions">
-              <button type="button" className="btn-secondary" onClick={() => setEditUserId(null)}>
-                Отмена
-              </button>
-              <button type="button" className="btn-primary" disabled={busy} onClick={() => void saveEditRoles()}>
-                {busy ? 'Сохранение…' : 'Сохранить'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showModal && (
+      {modalMode && (
         <div className="modal-overlay" onClick={closeModal} role="presentation">
           <div
             className="modal"
@@ -307,15 +271,15 @@ export function AdminUsers() {
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
-            aria-labelledby="add-user-title"
+            aria-labelledby="user-modal-title"
           >
-            <h2 id="add-user-title">Новый пользователь</h2>
+            <h2 id="user-modal-title">{isEdit ? 'Редактировать пользователя' : 'Новый пользователь'}</h2>
             {formError && <div className="alert alert-error">{formError}</div>}
-            <form onSubmit={handleCreate}>
+            <form onSubmit={(e) => void handleSubmit(e)}>
               <div className="form-group">
-                <label htmlFor="new-fullName">ФИО</label>
+                <label htmlFor="user-fullName">ФИО</label>
                 <input
-                  id="new-fullName"
+                  id="user-fullName"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   required
@@ -323,24 +287,31 @@ export function AdminUsers() {
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="new-login">Логин</label>
+                <label htmlFor="user-login">Логин</label>
                 <input
-                  id="new-login"
+                  id="user-login"
                   value={login}
                   onChange={(e) => setLogin(e.target.value)}
                   required
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="new-password">Пароль</label>
+                <label htmlFor="user-password">{isEdit ? 'Новый пароль' : 'Пароль'}</label>
                 <input
-                  id="new-password"
+                  id="user-password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  minLength={6}
-                  required
+                  minLength={isEdit ? undefined : 6}
+                  required={!isEdit}
+                  placeholder={isEdit ? 'Оставьте пустым, чтобы не менять' : undefined}
+                  autoComplete="new-password"
                 />
+                {isEdit && (
+                  <p style={{ margin: '0.35rem 0 0', fontSize: '0.85rem', opacity: 0.75 }}>
+                    Заполните только если нужно сменить пароль (от 6 символов)
+                  </p>
+                )}
               </div>
               <div className="form-group">
                 <label>Роли</label>
@@ -395,9 +366,9 @@ export function AdminUsers() {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label htmlFor="new-group">Группа</label>
+                    <label htmlFor="user-group">Группа</label>
                     <input
-                      id="new-group"
+                      id="user-group"
                       value={group}
                       onChange={(e) => setGroup(e.target.value)}
                       placeholder="ПД-21"
@@ -410,7 +381,7 @@ export function AdminUsers() {
                   Отмена
                 </button>
                 <button type="submit" className="btn-primary" disabled={busy}>
-                  {busy ? 'Создание…' : 'Создать'}
+                  {busy ? 'Сохранение…' : isEdit ? 'Сохранить' : 'Создать'}
                 </button>
               </div>
             </form>

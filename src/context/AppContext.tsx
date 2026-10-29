@@ -44,7 +44,10 @@ interface AppContextValue {
   logout: () => void
   switchRole: (role: Role) => Promise<string | null>
   createUser: (fields: RegisterFields) => Promise<string | null>
-  updateUserRoles: (id: string, roles: Role[]) => Promise<string | null>
+  updateUser: (
+    id: string,
+    fields: Partial<RegisterFields> & { roles?: Role[]; password?: string }
+  ) => Promise<string | null>
   refresh: () => Promise<void>
   updateProfile: (
     fields: Partial<
@@ -222,19 +225,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [toast]
   )
 
-  const updateUserRoles = useCallback(
-    async (id: string, roles: Role[]) => {
+  const updateUser = useCallback(
+    async (
+      id: string,
+      fields: Partial<RegisterFields> & { roles?: Role[]; password?: string }
+    ) => {
       try {
-        const result = await api.updateUserRoles(id, roles)
+        const result = await api.updateUser(id, fields)
         setData(result.data)
         setCurrentUser((prev) => {
           if (!prev || prev.id !== id) return prev
-          const nextRoles = roles.length ? roles : prev.roles
+          const fromData = result.data.users.find((u) => u.id === id)
+          if (!fromData) return prev
+          const nextRoles = fromData.roles?.length ? fromData.roles : prev.roles
           const stillActive =
             nextRoles && nextRoles.includes(prev.role) ? prev.role : nextRoles?.[0] || prev.role
-          return { ...prev, roles: nextRoles, role: stillActive }
+          return { ...fromData, role: stillActive, roles: nextRoles }
         })
-        toast('Роли обновлены')
+        toast('Пользователь обновлён')
         return null
       } catch (e) {
         return e instanceof Error ? e.message : 'Ошибка'
@@ -468,7 +476,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       logout,
       switchRole,
       createUser,
-      updateUserRoles,
+      updateUser,
       refresh,
       updateProfile,
       setEnabledAssignmentTypes,
@@ -501,7 +509,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       logout,
       switchRole,
       createUser,
-      updateUserRoles,
+      updateUser,
       refresh,
       updateProfile,
       setEnabledAssignmentTypes,
