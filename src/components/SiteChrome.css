@@ -23,12 +23,17 @@
 }
 
 .site-chrome-login {
-  background: linear-gradient(160deg, var(--primary-dark) 0%, var(--primary) 55%, #3d7bb0 100%);
+  background:
+    radial-gradient(ellipse 70% 50% at 20% 10%, rgba(42, 107, 82, 0.2), transparent 50%),
+    linear-gradient(165deg, var(--primary-dark) 0%, var(--primary) 58%, #2a5f8a 100%);
 }
 
 .sg-public-header {
-  background: var(--primary);
-  box-shadow: 0 2px 10px rgba(30, 79, 124, 0.15);
+  position: relative;
+  z-index: 5;
+  background: rgba(21, 58, 92, 0.92);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .sg-public-menu {
@@ -36,9 +41,10 @@
   align-items: stretch;
   max-width: 1200px;
   margin: 0 auto;
-  min-height: 52px;
-  font-weight: 300;
-  font-size: 1.05rem;
+  min-height: 56px;
+  font-weight: 500;
+  font-size: 1rem;
+  padding: 0 0.5rem;
 }
 
 .sg-public-home {
@@ -47,16 +53,20 @@
   justify-content: center;
   min-width: 64px;
   min-height: 48px;
-  padding: 0 0.85rem;
-  background: rgba(0, 0, 0, 0.15);
+  padding: 0 0.9rem;
+  margin: 0.35rem 0.25rem 0.35rem 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
   color: #fff !important;
+  font-family: var(--font-display);
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   text-decoration: none;
+  transition: background var(--motion-fast);
 }
 
 .sg-public-home:hover {
-  background: rgba(0, 0, 0, 0.22);
+  background: rgba(255, 255, 255, 0.2);
   color: #fff !important;
 }
 
@@ -65,14 +75,15 @@
   align-items: center;
   padding: 0 0.9rem;
   min-height: 48px;
-  color: #fff !important;
+  color: rgba(255, 255, 255, 0.92) !important;
   text-decoration: none;
   border-radius: 8px;
-  margin: 0.35rem 0.15rem;
+  margin: 0.35rem 0.1rem;
+  transition: background var(--motion-fast);
 }
 
 .sg-public-item:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.12);
   color: #fff !important;
 }
 
@@ -80,21 +91,23 @@
   margin-left: auto;
   display: flex;
   align-items: center;
-  padding-right: 0.75rem;
+  padding-right: 0.5rem;
 }
 
 .sg-public-login {
   color: #fff !important;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  padding: 0.35rem 0.85rem;
-  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  padding: 0.4rem 1rem;
+  border-radius: 6px;
   text-decoration: none;
   font-weight: 600;
   font-size: 0.9rem;
+  transition: background var(--motion-fast), border-color var(--motion-fast);
 }
 
 .sg-public-login:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: #fff;
   color: #fff !important;
 }
 
@@ -103,22 +116,50 @@
   width: 100%;
 }
 
+.site-chrome-overlay .sg-public-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(180deg, rgba(12, 32, 52, 0.72) 0%, transparent 100%);
+  border-bottom: none;
+  backdrop-filter: none;
+}
+
+.site-chrome-overlay .sg-public-home {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff !important;
+}
+
+.site-chrome-overlay .sg-public-item {
+  color: #fff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.site-chrome-overlay .sg-public-login {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff !important;
+  border-color: rgba(255, 255, 255, 0.7);
+}
+
 .site-footer {
-  background: #2c4053;
-  color: #c8d2dc;
+  background: var(--primary-dark);
+  color: #c5d2de;
 }
 
 .site-footer-inner {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 1.5rem 1.25rem;
+  padding: 1.75rem 1.5rem;
   display: grid;
   gap: 0.75rem;
 }
 
 .site-footer strong {
   color: #fff;
+  font-family: var(--font-display);
   font-weight: 600;
+  font-size: 1.05rem;
 }
 
 .site-footer-links {
@@ -128,9 +169,9 @@
 }
 
 .site-footer-links a {
-  color: #9bd;
+  color: var(--link-soft);
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-underline-offset: 3px;
 }
 
 .site-footer-links a:hover {

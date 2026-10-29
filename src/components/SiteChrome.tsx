@@ -2,9 +2,26 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import './SiteChrome.css'
 
-export function SiteChrome({ children, variant = 'default' }: { children: ReactNode; variant?: 'default' | 'login' }) {
+export function SiteChrome({
+  children,
+  variant = 'default',
+  overlayNav = false,
+}: {
+  children: ReactNode
+  variant?: 'default' | 'login'
+  /** Навигация поверх hero (главная) */
+  overlayNav?: boolean
+}) {
   return (
-    <div className={`site-chrome ${variant === 'login' ? 'site-chrome-login' : ''}`}>
+    <div
+      className={[
+        'site-chrome',
+        variant === 'login' ? 'site-chrome-login' : '',
+        overlayNav ? 'site-chrome-overlay' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
       <a href="#main-content" className="skip-link">
         Перейти к основному содержимому
       </a>

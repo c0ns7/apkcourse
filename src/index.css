@@ -1,31 +1,41 @@
 :root {
-  /* Современный официальный стиль (синяя палитра образовательных порталов) */
-  --font-sans: 'Open Sans', Arial, Helvetica, sans-serif;
-  --font-display: 'Open Sans', Arial, Helvetica, sans-serif;
+  /* Педагогический официальный: колледж, книги, доверие */
+  --font-sans: 'Source Sans 3', 'Segoe UI', Arial, sans-serif;
+  --font-display: 'Source Serif 4', 'Times New Roman', Georgia, serif;
   --font-mono: ui-monospace, Consolas, monospace;
-  --bg: #eef2f6;
+  --bg: #f0f3f6;
   --bg-elevated: #ffffff;
-  --bg-sidebar: #2f6aa3;
-  --primary: #2f6aa3;
-  --primary-light: #4a86bd;
-  --primary-dark: #1e4f7c;
-  --accent: #e8920d;
-  --accent-soft: #fff6e8;
-  --official-soft: #eaf3fa;
-  --link-soft: #9ec0de;
-  --text: #243041;
-  --text-muted: #627084;
-  --border: #d8e0e8;
-  --success: #2f9e5b;
-  --warning: #e8920d;
-  --danger: #d64545;
-  --info: #2f6aa3;
-  --shadow: 0 4px 16px rgba(30, 79, 124, 0.08);
-  --shadow-lg: 0 14px 36px rgba(30, 79, 124, 0.14);
-  --radius: 10px;
-  --radius-lg: 14px;
+  --bg-sidebar: #1e4d7b;
+  --primary: #1e4d7b;
+  --primary-light: #2f6a9e;
+  --primary-dark: #153a5c;
+  --accent: #2a6b52;
+  --accent-soft: #e8f2ec;
+  --official-soft: #e7eef5;
+  --link-soft: #8eb0cc;
+  --text: #1a2b3c;
+  --text-muted: #5a6b7c;
+  --border: #cfd8e2;
+  --success: #2a6b52;
+  --warning: #c9850f;
+  --danger: #c23b3b;
+  --info: #1e4d7b;
+  --shadow: 0 2px 12px rgba(21, 58, 92, 0.07);
+  --shadow-lg: 0 12px 32px rgba(21, 58, 92, 0.12);
+  --radius: 8px;
+  --radius-lg: 12px;
   --sidebar-width: 260px;
-  --focus-ring: 0 0 0 3px rgba(47, 106, 163, 0.28);
+  --focus-ring: 0 0 0 3px rgba(30, 77, 123, 0.3);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-fast: 160ms;
+  --motion-med: 280ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-med: 0ms;
+  }
 }
 
 *,
@@ -51,34 +61,37 @@ body,
   font-family: var(--font-sans);
   font-size: 1.0625rem;
   font-weight: 400;
-  line-height: 1.47059;
+  line-height: 1.5;
   letter-spacing: -0.011em;
   color: var(--text);
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 100% -10%, rgba(30, 77, 123, 0.06), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 0% 100%, rgba(42, 107, 82, 0.05), transparent 50%);
+  background-attachment: fixed;
 }
 
 h1, h2, h3, h4,
 .font-display {
   font-family: var(--font-display);
   font-weight: 600;
-  line-height: 1.1;
-  letter-spacing: -0.028em;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  color: var(--primary-dark);
 }
 
 h1 {
   font-weight: 700;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.02em;
 }
 
 h2 {
   font-weight: 600;
-  letter-spacing: -0.03em;
 }
 
 h3, h4 {
   font-weight: 600;
-  letter-spacing: -0.022em;
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
 /* Единый шрифт для всех элементов интерфейса */
@@ -155,7 +168,13 @@ a.btn-ghost {
   cursor: pointer;
   box-sizing: border-box;
   white-space: nowrap;
-  transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
+  transition:
+    transform var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out),
+    opacity var(--motion-fast),
+    background var(--motion-fast),
+    color var(--motion-fast),
+    border-color var(--motion-fast);
 }
 
 button:disabled {
@@ -175,7 +194,7 @@ a.btn-danger:active {
 a.btn-primary {
   background: var(--primary);
   color: #fff !important;
-  box-shadow: 0 4px 12px rgba(47, 106, 163, 0.25);
+  box-shadow: 0 2px 8px rgba(21, 58, 92, 0.18);
   border: 1px solid var(--primary-dark);
 }
 
@@ -188,7 +207,7 @@ a.btn-primary:hover {
 .btn-secondary,
 a.btn-secondary {
   background: var(--bg-elevated);
-  color: var(--primary) !important;
+  color: var(--primary-dark) !important;
   border: 1px solid var(--border);
 }
 
@@ -196,21 +215,21 @@ a.btn-secondary {
 a.btn-secondary:hover {
   color: var(--primary) !important;
   border-color: var(--primary-light);
-  background: rgba(42, 122, 171, 0.06);
+  background: var(--official-soft);
 }
 
 .btn-accent,
 a.btn-accent {
   background: var(--accent);
   color: #fff !important;
-  border: 1px solid #d07f00;
-  box-shadow: 0 4px 12px rgba(232, 146, 13, 0.25);
+  border: 1px solid #1f533f;
+  box-shadow: 0 2px 8px rgba(42, 107, 82, 0.22);
 }
 
 .btn-accent:hover,
 a.btn-accent:hover {
   color: #fff !important;
-  background: #f0a12a;
+  background: #348062;
 }
 
 .btn-danger,
@@ -575,13 +594,13 @@ a.attachment-file:hover {
   letter-spacing: 0.02em;
 }
 
-.badge-pending { background: #fef3c7; color: #92400e; }
-.badge-submitted { background: #dbeafe; color: #1e40af; }
-.badge-graded { background: #d1fae5; color: #065f46; }
-.badge-returned { background: #fce7f3; color: #9d174d; }
-.badge-student { background: #e0e7ff; color: #3730a3; }
-.badge-teacher { background: #fce7f3; color: #9d174d; }
-.badge-admin { background: #f3e8ff; color: #6b21a8; }
+.badge-pending { background: #f5ebd4; color: #7a5608; }
+.badge-submitted { background: var(--official-soft); color: var(--primary-dark); }
+.badge-graded { background: var(--accent-soft); color: #1a4a38; }
+.badge-returned { background: #f8e4e4; color: #8a2a2a; }
+.badge-student { background: var(--official-soft); color: var(--primary-dark); }
+.badge-teacher { background: var(--accent-soft); color: #1a4a38; }
+.badge-admin { background: #e8edf2; color: #1a2b3c; }
 
 .deadline-badge {
   font-size: 0.72rem;
@@ -596,16 +615,28 @@ a.attachment-file:hover {
 
 .page {
   max-width: 1200px;
-  animation: fadeIn 0.35s ease;
+  animation: fadeIn var(--motion-med) var(--ease-out);
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page,
+  .modal-overlay,
+  .modal {
+    animation: none !important;
+  }
 }
 
 .page-header { margin-bottom: 1.75rem; }
-.page-header h1 { margin: 0 0 0.35rem; font-size: 1.875rem; }
+.page-header h1 {
+  margin: 0 0 0.35rem;
+  font-size: clamp(1.55rem, 2.5vw, 1.95rem);
+  font-family: var(--font-display);
+}
 .page-header p {
   margin: 0;
   color: var(--text-muted);
@@ -677,15 +708,15 @@ a.attachment-file:hover {
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--primary), var(--accent));
+  background: linear-gradient(90deg, var(--primary-dark), var(--accent));
 }
 
 .stat-card .num {
+  font-family: var(--font-display);
   font-size: 2.25rem;
   font-weight: 700;
-  color: var(--primary);
-  font-family: var(--font-display);
-  letter-spacing: -0.04em;
+  color: var(--primary-dark);
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
@@ -748,14 +779,14 @@ tr:hover td { background: rgba(128, 128, 128, 0.04); }
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.55);
-  backdrop-filter: blur(4px);
+  background: rgba(15, 42, 68, 0.5);
+  backdrop-filter: blur(3px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 200;
   padding: 1rem;
-  animation: fadeIn 0.2s ease;
+  animation: fadeIn var(--motion-fast) var(--ease-out);
 }
 
 .modal {
@@ -768,9 +799,25 @@ tr:hover td { background: rgba(128, 128, 128, 0.04); }
   overflow-y: auto;
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--border);
+  animation: modalIn var(--motion-med) var(--ease-out);
 }
 
-.modal h2 { margin: 0 0 1.25rem; font-size: 1.35rem; }
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.modal h2 {
+  margin: 0 0 1.25rem;
+  font-size: 1.35rem;
+  font-family: var(--font-display);
+}
 
 .modal-actions {
   display: flex;
@@ -1023,7 +1070,7 @@ tr:hover td { background: rgba(128, 128, 128, 0.04); }
 .breadcrumbs a:hover { color: var(--primary); }
 .breadcrumbs span { opacity: 0.5; }
 
-.badge-accent { background: var(--accent-soft); color: #92400e; }
+.badge-accent { background: var(--accent-soft); color: #1a4a38; }
 
 .section-title {
   font-size: 1.15rem;

@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="40=85 ?5403>38G5A:>3> :>;;5460">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8EB8D8"/>
+      <stop offset="55%" stop-color="#C5D9E8"/>
+      <stop offset="100%" stop-color="#E8EEF2"/>
+    </linearGradient>
+    <linearGradient id="hill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3D6B52"/>
+      <stop offset="100%" stop-color="#2A4F3C"/>
+    </linearGradient>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F4F1EA"/>
+      <stop offset="100%" stop-color="#E2D9C8"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#sky)"/>
+  <!-- distant hills -->
+  <path d="M0 520 C200 460 380 500 560 470 C780 430 980 500 1200 455 C1380 420 1500 470 1600 450 L1600 900 L0 900 Z" fill="url(#hill)" opacity="0.85"/>
+  <path d="M0 580 C280 540 520 600 760 560 C1020 510 1280 590 1600 555 L1600 900 L0 900 Z" fill="#2F5A45" opacity="0.9"/>
+  <!-- plaza -->
+  <path d="M0 720 L1600 700 L1600 900 L0 900 Z" fill="#D5D0C4"/>
+  <!-- main building -->
+  <rect x="380" y="280" width="840" height="420" fill="url(#wall)" stroke="#1E4D7B" stroke-width="3"/>
+  <!-- cornice -->
+  <rect x="360" y="260" width="880" height="28" fill="#1E4D7B"/>
+  <rect x="400" y="230" width="800" height="36" fill="#153A5C"/>
+  <!-- pediment -->
+  <polygon points="800,140 1080,230 520,230" fill="#1E4D7B"/>
+  <polygon points="800,165 1020,230 580,230" fill="#F4F1EA"/>
+  <!-- columns -->
+  <rect x="480" y="320" width="36" height="300" fill="#E8E2D4" stroke="#1E4D7B" stroke-width="2"/>
+  <rect x="620" y="320" width="36" height="300" fill="#E8E2D4" stroke="#1E4D7B" stroke-width="2"/>
+  <rect x="944" y="320" width="36" height="300" fill="#E8E2D4" stroke="#1E4D7B" stroke-width="2"/>
+  <rect x="1084" y="320" width="36" height="300" fill="#E8E2D4" stroke="#1E4D7B" stroke-width="2"/>
+  <!-- central portal -->
+  <rect x="700" y="360" width="200" height="260" fill="#1E4D7B"/>
+  <path d="M720 620 L720 420 Q800 360 880 420 L880 620 Z" fill="#153A5C"/>
+  <rect x="760" y="480" width="80" height="140" fill="#0F2A44"/>
+  <!-- windows -->
+  <g fill="#A8C8DE" stroke="#1E4D7B" stroke-width="2">
+    <rect x="440" y="340" width="70" height="90"/>
+    <rect x="540" y="340" width="70" height="90"/>
+    <rect x="990" y="340" width="70" height="90"/>
+    <rect x="1090" y="340" width="70" height="90"/>
+    <rect x="440" y="470" width="70" height="90"/>
+    <rect x="540" y="470" width="70" height="90"/>
+    <rect x="990" y="470" width="70" height="90"/>
+    <rect x="1090" y="470" width="70" height="90"/>
+  </g>
+  <!-- steps -->
+  <rect x="640" y="640" width="320" height="18" fill="#C9C2B3"/>
+  <rect x="620" y="658" width="360" height="18" fill="#B8B0A0"/>
+  <rect x="600" y="676" width="400" height="22" fill="#A89F8E"/>
+  <!-- flagpole -->
+  <line x1="800" y1="140" x2="800" y2="70" stroke="#153A5C" stroke-width="4"/>
+  <path d="M804 74 L880 92 L804 110 Z" fill="#2A6B52"/>
+  <!-- trees -->
+  <g fill="#2A6B52">
+    <ellipse cx="220" cy="620" rx="55" ry="70"/>
+    <ellipse cx="280" cy="640" rx="40" ry="55"/>
+    <ellipse cx="1380" cy="610" rx="60" ry="75"/>
+    <ellipse cx="1450" cy="635" rx="45" ry="58"/>
+  </g>
+  <g fill="#1A4534">
+    <rect x="210" y="660" width="14" height="50"/>
+    <rect x="1370" y="655" width="14" height="55"/>
+  </g>
+</svg>

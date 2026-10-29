@@ -7,6 +7,8 @@ import {
   Calendar,
   CheckCircle,
   Clock,
+  Eye,
+  EyeOff,
   FileText,
   GraduationCap,
   Home,
@@ -49,6 +51,8 @@ export type IconName =
   | 'student'
   | 'teacher'
   | 'chat'
+  | 'eye'
+  | 'eyeOff'
 
 const icons: Record<IconName, ComponentType<LucideProps>> = {
   home: Home,
@@ -74,6 +78,8 @@ const icons: Record<IconName, ComponentType<LucideProps>> = {
   student: GraduationCap,
   teacher: User,
   chat: MessageCircle,
+  eye: Eye,
+  eyeOff: EyeOff,
 }
 
 export function Icon({
