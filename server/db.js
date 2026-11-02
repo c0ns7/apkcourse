@@ -169,6 +169,144 @@ export function initDb() {
   migrateExtendedSchema()
   ensureRoot()
   ensureCatalog()
+  ensurePortalSeed()
+}
+
+/**
+ * Подтягивает пользователей/группы из server/seed/portal-users.json
+ * при первом старте на сервере (когда runtime-БД пустая/старая).
+ * Повторно не дублирует: по login и флагу в settings.
+ */
+function ensurePortalSeed() {
+  const seedPath = path.join(__dirname, 'seed', 'portal-users.json')
+  if (!fs.existsSync(seedPath)) return
+
+  let seed
+  try {
+    seed = JSON.parse(fs.readFileSync(seedPath, 'utf8'))
+  } catch (e) {
+    console.error('[seed] не удалось прочитать portal-users.json:', e.message)
+    return
+  }
+
+  const marker = `seed_portal_users_v${seed.version || 1}`
+  const done = db.prepare('SELECT value FROM settings WHERE key = ?').get(marker)
+  const force = String(process.env.FORCE_PORTAL_SEED || '') === '1'
+  if (done && !force) return
+
+  const groups = Array.isArray(seed.groups) ? seed.groups : []
+  const users = Array.isArray(seed.users) ? seed.users : []
+  const members = Array.isArray(seed.members) ? seed.members : []
+
+  const insertGroup = db.prepare(`
+    INSERT OR IGNORE INTO study_groups
+      (id, name, education_form, academic_year, specialty, course, teacher_id, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+  const updateGroupMeta = db.prepare(`
+    UPDATE study_groups SET
+      education_form = COALESCE(?, education_form),
+      academic_year = COALESCE(?, academic_year),
+      specialty = COALESCE(?, specialty),
+      course = COALESCE(?, course),
+      teacher_id = COALESCE(?, teacher_id)
+    WHERE id = ? OR name = ? COLLATE NOCASE
+  `)
+
+  let groupsOk = 0
+  for (const g of groups) {
+    insertGroup.run(
+      g.id,
+      g.name,
+      g.education_form || 'fulltime',
+      g.academic_year || null,
+      g.specialty || null,
+      g.course ?? null,
+      g.teacher_id || null,
+      g.created_at || new Date().toISOString().slice(0, 10)
+    )
+    updateGroupMeta.run(
+      g.education_form || null,
+      g.academic_year || null,
+      g.specialty || null,
+      g.course ?? null,
+      g.teacher_id || null,
+      g.id,
+      g.name
+    )
+    groupsOk += 1
+  }
+
+  const findByLogin = db.prepare('SELECT id FROM users WHERE login = ? COLLATE NOCASE')
+  const insertUser = db.prepare(`
+    INSERT INTO users (
+      id, login, password_hash, full_name, role, roles_json,
+      group_name, group_id, teacher_id, specialty, course, academic_year,
+      disciplines_json, discipline_ids_json, enabled_assignment_types_json,
+      personal_data_consent, bio, created_at, education_form, admin_scopes_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+
+  let usersAdded = 0
+  let usersSkipped = 0
+  for (const u of users) {
+    if (!u.login || !u.password_hash || !u.full_name) {
+      usersSkipped += 1
+      continue
+    }
+    if (isRootLogin(u.login)) {
+      usersSkipped += 1
+      continue
+    }
+    if (findByLogin.get(u.login)) {
+      usersSkipped += 1
+      continue
+    }
+    insertUser.run(
+      u.id,
+      String(u.login).toLowerCase(),
+      u.password_hash,
+      u.full_name,
+      u.role || 'student',
+      u.roles_json || JSON.stringify([u.role || 'student']),
+      u.group_name || null,
+      u.group_id || null,
+      u.teacher_id || null,
+      u.specialty || null,
+      u.course ?? null,
+      u.academic_year || null,
+      u.disciplines_json || '[]',
+      u.discipline_ids_json || '[]',
+      u.enabled_assignment_types_json || null,
+      u.personal_data_consent ? 1 : 1,
+      u.bio || null,
+      u.created_at || new Date().toISOString().slice(0, 10),
+      u.education_form || 'fulltime',
+      u.admin_scopes_json || null
+    )
+    usersAdded += 1
+  }
+
+  const insertMember = db.prepare(
+    'INSERT OR IGNORE INTO group_students (group_id, student_id) VALUES (?, ?)'
+  )
+  let membersOk = 0
+  for (const m of members) {
+    if (!m.group_id || !m.student_id) continue
+    const userExists = db.prepare('SELECT id FROM users WHERE id = ?').get(m.student_id)
+    const groupExists = db.prepare('SELECT id FROM study_groups WHERE id = ?').get(m.group_id)
+    if (!userExists || !groupExists) continue
+    insertMember.run(m.group_id, m.student_id)
+    membersOk += 1
+  }
+
+  db.prepare(
+    'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'
+  ).run(marker, seed.exportedAt || new Date().toISOString())
+
+  console.log(
+    `[seed] portal users: +${usersAdded} users (skip ${usersSkipped}), groups ${groupsOk}, links ${membersOk}`
+  )
 }
 
 function tableColumns(table) {

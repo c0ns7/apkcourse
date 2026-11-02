@@ -166,6 +166,23 @@ APK API listening on http://localhost:3000
 > Root-аккаунт создаётся **только один раз** при первом старте.  
 > Смена `ROOT_PASSWORD` в `.env` позже **не** меняет пароль уже существующего пользователя в БД.
 
+### Пользователи из Excel (seed)
+
+Файл `server/seed/portal-users.json` (логины/хеши паролей студентов и преподавателей)  
+подхватывается **автоматически при старте API**, если в runtime-БД ещё не применялся этот seed.
+
+- Копируйте на сервер вместе с `server/` (не нужно копировать `server/data/apk.db`).
+- Логины/пароли — в `Учётные_данные_портал_АПК.xlsx` (локально в Downloads).
+- Повторный импорт пропущенных: в `.env` временно `FORCE_PORTAL_SEED=1`, перезапуск, затем убрать флаг.
+
+```bash
+# убедитесь, что seed на сервере
+ls /var/www/apkcourse/server/seed/portal-users.json
+systemctl restart apkcourse
+journalctl -u apkcourse -n 30 --no-pager
+# в логе: [seed] portal users: +N users ...
+```
+
 ---
 
 ## 6. Автозапуск (systemd)
