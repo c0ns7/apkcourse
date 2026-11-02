@@ -8,7 +8,6 @@ export function TeacherDashboard() {
   const { data, currentUser } = useApp()
   if (!currentUser) return null
 
-  const firstName = currentUser.fullName.split(' ')[0]
   const mySubjects = data.subjects.filter((s) => s.teacherId === currentUser.id)
   const myAssignments = data.assignments
     .filter((a) => mySubjects.some((s) => s.id === a.subjectId))
@@ -172,7 +171,7 @@ export function TeacherDashboard() {
             </Link>
           </div>
           <p className="dash-empty" style={{ marginTop: '1rem' }}>
-            Добро пожаловать, {firstName}. Начните с предметов или проверки работ.
+            Добро пожаловать, {currentUser.fullName}. Начните с предметов или проверки работ.
           </p>
         </aside>
       </div>

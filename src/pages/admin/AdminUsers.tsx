@@ -3,12 +3,16 @@ import { useApp } from '../../context/AppContext'
 import { PageHeader } from '../../components/PageHeader'
 import { SearchInput } from '../../components/SearchInput'
 import { Avatar } from '../../components/Avatar'
-import type { Role, User } from '../../types'
+import type { AdminScope, EducationForm, Role, User } from '../../types'
 import {
   ACADEMIC_YEARS,
   CURRENT_ACADEMIC_YEAR,
+  EDUCATION_FORMS,
   SPECIALTIES,
+  adminScopeLabels,
+  educationFormLabels,
   hasRole,
+  normalizeAdminScopes,
   userRoles,
 } from '../../utils/helpers'
 
@@ -25,10 +29,12 @@ export function AdminUsers() {
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
   const [roles, setRoles] = useState<Role[]>(['student'])
-  const [group, setGroup] = useState('')
+  const [groupId, setGroupId] = useState('')
   const [specialty, setSpecialty] = useState(SPECIALTIES[0])
   const [course, setCourse] = useState(1)
   const [academicYear, setAcademicYear] = useState(CURRENT_ACADEMIC_YEAR)
+  const [educationForm, setEducationForm] = useState<EducationForm>('fulltime')
+  const [adminScopes, setAdminScopes] = useState<AdminScope[]>(['all'])
   const [formError, setFormError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -48,10 +54,12 @@ export function AdminUsers() {
     setLogin('')
     setPassword('')
     setRoles(['student'])
-    setGroup('')
+    setGroupId('')
     setSpecialty(SPECIALTIES[0])
     setCourse(1)
     setAcademicYear(CURRENT_ACADEMIC_YEAR)
+    setEducationForm('fulltime')
+    setAdminScopes(['all'])
     setFormError('')
     setEditUserId(null)
   }
@@ -81,12 +89,26 @@ export function AdminUsers() {
     setLogin(u.login)
     setPassword('')
     setRoles(userRoles(u))
-    setGroup(u.group || '')
+    setGroupId(u.groupId || '')
     setSpecialty(u.specialty || SPECIALTIES[0])
     setCourse(u.course || 1)
     setAcademicYear(u.academicYear || CURRENT_ACADEMIC_YEAR)
+    setEducationForm(u.educationForm || 'fulltime')
+    setAdminScopes(normalizeAdminScopes(u.adminScopes))
     setFormError('')
     setModalMode('edit')
+  }
+
+  const toggleAdminScope = (scope: AdminScope) => {
+    setAdminScopes((prev) => {
+      if (scope === 'all') return ['all']
+      const withoutAll = prev.filter((s) => s !== 'all')
+      if (withoutAll.includes(scope)) {
+        const next = withoutAll.filter((s) => s !== scope)
+        return next.length ? next : ['all']
+      }
+      return [...withoutAll, scope]
+    })
   }
 
   const toggleRole = (r: Role) => {
@@ -126,10 +148,12 @@ export function AdminUsers() {
       fullName,
       role: primary as Role,
       roles,
-      group: roles.includes('student') ? group : undefined,
+      groupId: roles.includes('student') ? groupId || undefined : undefined,
       specialty: roles.includes('student') ? specialty : undefined,
       course: roles.includes('student') ? course : undefined,
       academicYear,
+      educationForm,
+      adminScopes: roles.includes('admin') ? adminScopes : undefined,
       personalDataConsent: true as const,
     }
 
@@ -210,7 +234,7 @@ export function AdminUsers() {
               <th>Логин</th>
               <th>Роли</th>
               <th>Группа</th>
-              <th>Год</th>
+              <th>Форма</th>
               <th></th>
             </tr>
           </thead>
@@ -235,7 +259,15 @@ export function AdminUsers() {
                   </span>
                 </td>
                 <td>{u.group || '—'}</td>
-                <td>{u.academicYear || '—'}</td>
+                <td>
+                  {hasRole(u, 'student') && u.educationForm
+                    ? educationFormLabels[u.educationForm]
+                    : hasRole(u, 'admin')
+                      ? normalizeAdminScopes(u.adminScopes)
+                          .map((s) => adminScopeLabels[s])
+                          .join(', ')
+                      : '—'}
+                </td>
                 <td style={{ whiteSpace: 'nowrap' }}>
                   {canManage(u) && (
                     <button
@@ -331,6 +363,26 @@ export function AdminUsers() {
                   ))}
                 </div>
               </div>
+              {roles.includes('admin') && isRoot && (
+                <div className="form-group">
+                  <label>Права администратора</label>
+                  <p style={{ margin: '0 0 0.5rem', fontSize: '0.85rem', opacity: 0.75 }}>
+                    Полные права или только по выбран формам обучения
+                  </p>
+                  <div className="filter-chips" style={{ margin: 0 }}>
+                    {(['all', ...EDUCATION_FORMS] as AdminScope[]).map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        className={`chip ${adminScopes.includes(s) || (s !== 'all' && adminScopes.includes('all')) ? 'active' : ''}`}
+                        onClick={() => toggleAdminScope(s)}
+                      >
+                        {adminScopeLabels[s]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {(roles.includes('student') || roles.includes('teacher')) && (
                 <div className="form-group">
                   <label>Учебный год</label>
@@ -345,6 +397,19 @@ export function AdminUsers() {
               )}
               {roles.includes('student') && (
                 <>
+                  <div className="form-group">
+                    <label>Форма обучения</label>
+                    <select
+                      value={educationForm}
+                      onChange={(e) => setEducationForm(e.target.value as EducationForm)}
+                    >
+                      {EDUCATION_FORMS.map((f) => (
+                        <option key={f} value={f}>
+                          {educationFormLabels[f]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   <div className="form-group">
                     <label>Специальность</label>
                     <select value={specialty} onChange={(e) => setSpecialty(e.target.value)}>
@@ -367,12 +432,22 @@ export function AdminUsers() {
                   </div>
                   <div className="form-group">
                     <label htmlFor="user-group">Группа</label>
-                    <input
+                    <select
                       id="user-group"
-                      value={group}
-                      onChange={(e) => setGroup(e.target.value)}
-                      placeholder="ПД-21"
-                    />
+                      value={groupId}
+                      onChange={(e) => {
+                        setGroupId(e.target.value)
+                        const g = data.groups.find((x) => x.id === e.target.value)
+                        if (g) setEducationForm(g.educationForm)
+                      }}
+                    >
+                      <option value="">Без группы</option>
+                      {data.groups.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.name} · {educationFormLabels[g.educationForm]}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </>
               )}

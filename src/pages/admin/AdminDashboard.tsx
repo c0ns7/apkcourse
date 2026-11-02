@@ -2,7 +2,13 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import { Icon } from '../../components/Icon'
-import { ACADEMIC_YEARS, averageScore } from '../../utils/helpers'
+import {
+  ACADEMIC_YEARS,
+  EDUCATION_FORMS,
+  averageScore,
+  educationFormLabels,
+  studentEducationForm,
+} from '../../utils/helpers'
 import {
   exportGradesToExcel,
   exportStudentAnalyticsToExcel,
@@ -40,6 +46,37 @@ export function AdminDashboard() {
     }
     return Array.from(map.entries()).sort((a, b) => a[0] - b[0])
   }, [filteredStudents])
+
+  const byEducationForm = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const f of EDUCATION_FORMS) map.set(f, 0)
+    for (const s of filteredStudents) {
+      const form = studentEducationForm(s, data.groups)
+      map.set(form, (map.get(form) ?? 0) + 1)
+    }
+    return EDUCATION_FORMS.map((f) => [f, map.get(f) ?? 0] as const)
+  }, [filteredStudents, data.groups])
+
+  const teachersByForm = useMemo(() => {
+    return EDUCATION_FORMS.map((f) => {
+      const groupIds = new Set(
+        data.groups.filter((g) => g.educationForm === f).map((g) => g.id)
+      )
+      const count = teachers.filter((t) =>
+        data.groups.some((g) => g.teacherId === t.id && groupIds.has(g.id))
+      ).length
+      return [f, count] as const
+    })
+  }, [teachers, data.groups])
+
+  const assignmentsByForm = useMemo(() => {
+    return EDUCATION_FORMS.map((f) => {
+      const count = data.assignments.filter(
+        (a) => !a.educationForms?.length || a.educationForms.includes(f)
+      ).length
+      return [f, count] as const
+    })
+  }, [data.assignments])
 
   const studentRows = useMemo(() => {
     return filteredStudents.map((s) => {
@@ -89,8 +126,11 @@ export function AdminDashboard() {
             <Link to="/admin/users" className="btn-primary">
               Пользователи
             </Link>
-            <Link to="/admin/announcements" className="btn-secondary">
-              Объявления
+            <Link to="/admin/groups" className="btn-secondary">
+              Группы
+            </Link>
+            <Link to="/admin/disciplines" className="btn-secondary">
+              Дисциплины
             </Link>
           </div>
         </div>
@@ -156,13 +196,13 @@ export function AdminDashboard() {
           <div className="num">{teacherCount}</div>
           <div className="label">Преподавателей</div>
         </Link>
-        <div className="dash-stat" role="presentation">
+        <Link to="/admin/groups" className="dash-stat">
           <span className="dash-stat-icon">
-            <Icon name="book" size={20} />
+            <Icon name="users" size={20} />
           </span>
-          <div className="num">{data.subjects.length}</div>
-          <div className="label">Предметов</div>
-        </div>
+          <div className="num">{data.groups.length}</div>
+          <div className="label">Групп</div>
+        </Link>
         <div className="dash-stat" role="presentation">
           <span className={`dash-stat-icon ${pending ? 'warn' : 'ok'}`}>
             <Icon name="file" size={20} />
@@ -171,6 +211,35 @@ export function AdminDashboard() {
           <div className="label">На проверке</div>
         </div>
       </div>
+
+      <section className="card" style={{ marginBottom: '1.25rem' }}>
+        <h2 style={{ marginTop: 0 }}>По формам обучения</h2>
+        <div className="card table-wrap" style={{ margin: 0, boxShadow: 'none', border: 'none' }}>
+          <table>
+            <thead>
+              <tr>
+                <th>Форма</th>
+                <th>Студенты</th>
+                <th>Преподаватели групп</th>
+                <th>Задания (доступны)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {byEducationForm.map(([form, count], i) => (
+                <tr key={form}>
+                  <td>{educationFormLabels[form]}</td>
+                  <td>{count}</td>
+                  <td>{teachersByForm[i][1]}</td>
+                  <td>{assignmentsByForm[i][1]}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p style={{ fontSize: '0.85rem', opacity: 0.75, marginBottom: 0 }}>
+          Задания можно ограничивать формой обучения при создании. Проверено работ: {graded}
+        </p>
+      </section>
 
       <div className="dash-grid">
         <section className="dash-panel">

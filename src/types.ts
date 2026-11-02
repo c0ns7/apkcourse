@@ -1,5 +1,11 @@
 export type Role = 'student' | 'teacher' | 'admin'
 
+/** Форма обучения */
+export type EducationForm = 'fulltime' | 'distance' | 'retraining' | 'professional'
+
+/** Область прав администратора (по формам обучения) */
+export type AdminScope = 'all' | EducationForm
+
 export type SubmissionStatus = 'pending' | 'submitted' | 'graded' | 'returned'
 
 export type AssignmentType =
@@ -54,11 +60,16 @@ export interface User {
   role: Role
   /** Все роли аккаунта (для переключения) */
   roles?: Role[]
+  /** @deprecated имя группы; используйте groupId */
   group?: string
+  groupId?: string
   teacherId?: string
   specialty?: string
   course?: number
   academicYear?: string
+  educationForm?: EducationForm
+  /** Права админа по формам обучения; ['all'] = полные права */
+  adminScopes?: AdminScope[]
   disciplineIds?: string[]
   /** Названия дисциплин (при регистрации, если предмета ещё нет) */
   disciplines?: string[]
@@ -70,12 +81,34 @@ export interface User {
   isRoot?: boolean
 }
 
+export interface StudyGroup {
+  id: string
+  name: string
+  educationForm: EducationForm
+  academicYear?: string
+  specialty?: string
+  course?: number
+  /** Закреплённый преподаватель (куратор / ведёт группу) */
+  teacherId?: string
+  studentIds: string[]
+}
+
+export interface CourseModule {
+  id: string
+  subjectId: string
+  title: string
+  description?: string
+  sortOrder: number
+}
+
 export interface Subject {
   id: string
   title: string
   description: string
   teacherId: string
   studentIds: string[]
+  /** Группы, привязанные к предмету */
+  groupIds?: string[]
   color?: string
 }
 
@@ -90,6 +123,11 @@ export interface Assignment {
   type?: AssignmentType
   attachments?: Attachment[]
   payload?: AssignmentPayload
+  /** Группы, которым видно задание (пусто = всем на предмете) */
+  groupIds?: string[]
+  /** Формы обучения, для которых задание (пусто = все) */
+  educationForms?: EducationForm[]
+  moduleId?: string
   /** @deprecated migrated to attachments */
   attachmentName?: string
 }
@@ -118,7 +156,10 @@ export interface Announcement {
   body: string
   authorId: string
   audience: AnnouncementAudience
+  /** @deprecated одна группа */
   group?: string
+  /** Несколько групп для аудитории */
+  groupIds?: string[]
   subjectId?: string
   createdAt: string
   pinned?: boolean
@@ -138,6 +179,7 @@ export interface ScheduleItem {
   id: string
   subjectId: string
   group: string
+  groupId?: string
   day: number
   timeStart: string
   timeEnd: string
@@ -172,4 +214,6 @@ export interface AppData {
   chatThreads: ChatThread[]
   chatMessages: ChatMessage[]
   disciplineCatalog: string[]
+  groups: StudyGroup[]
+  modules: CourseModule[]
 }

@@ -19,7 +19,10 @@ import { TeacherStudents } from './pages/teacher/TeacherStudents'
 import { TeacherGrading } from './pages/teacher/TeacherGrading'
 import { AdminDashboard } from './pages/admin/AdminDashboard'
 import { AdminUsers } from './pages/admin/AdminUsers'
+import { AdminGroups } from './pages/admin/AdminGroups'
+import { AdminDisciplines } from './pages/admin/AdminDisciplines'
 import { AdminLogs } from './pages/admin/AdminLogs'
+import { TeacherAssignmentView } from './pages/teacher/TeacherAssignmentView'
 import { ChatPage } from './pages/shared/ChatPage'
 import { PrivacyPolicy } from './pages/PrivacyPolicy'
 
@@ -153,6 +156,14 @@ function AppRoutes() {
           }
         />
         <Route
+          path="teacher/assignment/:id"
+          element={
+            <ProtectedRoute roles={['teacher']}>
+              <TeacherAssignmentView />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="teacher/announcements"
           element={
             <ProtectedRoute roles={['teacher']}>
@@ -182,6 +193,22 @@ function AppRoutes() {
           element={
             <ProtectedRoute roles={['admin']}>
               <AdminUsers />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="admin/groups"
+          element={
+            <ProtectedRoute roles={['admin']}>
+              <AdminGroups />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="admin/disciplines"
+          element={
+            <ProtectedRoute roles={['admin']}>
+              <AdminDisciplines />
             </ProtectedRoute>
           }
         />

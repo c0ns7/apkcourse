@@ -15,7 +15,6 @@ export function StudentDashboard() {
   const { data, currentUser } = useApp()
   if (!currentUser) return null
 
-  const firstName = currentUser.fullName.split(' ')[0]
   const mySubjects = data.subjects.filter((s) => s.studentIds.includes(currentUser.id))
   const myAssignments = data.assignments.filter((a) =>
     mySubjects.some((s) => s.id === a.subjectId)
@@ -59,7 +58,7 @@ export function StudentDashboard() {
         <div className="dash-welcome-inner">
           <div>
             <p className="dash-welcome-kicker">{today}</p>
-            <h1>Здравствуйте, {firstName}</h1>
+            <h1>Здравствуйте, {currentUser.fullName}</h1>
             <p className="dash-welcome-meta">
               Группа {currentUser.group || '—'}
               {currentUser.specialty ? ` · ${currentUser.specialty}` : ''}

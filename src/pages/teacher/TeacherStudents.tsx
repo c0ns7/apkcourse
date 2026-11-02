@@ -1,87 +1,86 @@
 import { useState } from 'react'
 import { useApp } from '../../context/AppContext'
+import { PageHeader } from '../../components/PageHeader'
+import { educationFormLabels, hasRole } from '../../utils/helpers'
 
 export function TeacherStudents() {
-  const { data, currentUser, assignStudentToTeacher } = useApp()
-  const [selected, setSelected] = useState('')
+  const { data, currentUser, assignGroupToTeacher } = useApp()
+  const [selectedGroup, setSelectedGroup] = useState('')
 
   if (!currentUser) return null
 
-  const allStudents = data.users.filter((u) => u.role === 'student' || u.roles?.includes('student'))
-  const myStudents = allStudents.filter((u) => u.teacherId === currentUser.id)
-  const unassigned = allStudents.filter((u) => !u.teacherId || u.teacherId === currentUser.id)
-
-  const handleAssign = () => {
-    if (selected) {
-      assignStudentToTeacher(selected, currentUser.id)
-      setSelected('')
-    }
-  }
+  const myGroups = data.groups.filter((g) => g.teacherId === currentUser.id)
+  const freeGroups = data.groups.filter((g) => !g.teacherId)
+  const students = data.users.filter((u) => hasRole(u, 'student'))
 
   return (
     <div className="page">
-      <header className="page-header">
-        <h1>Мои студенты</h1>
-        <p>Закрепите студентов за собой, затем добавляйте их к предметам</p>
-      </header>
+      <PageHeader
+        title="Мои группы"
+        subtitle="Закрепляйте учебные группы, а не отдельных студентов"
+      />
 
-      <div className="card" style={{ marginBottom: '1.5rem' }}>
-        <h3 style={{ marginTop: 0 }}>Добавить студента</h3>
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <div className="form-group" style={{ flex: 1, minWidth: 200, marginBottom: 0 }}>
-            <label>Студент</label>
-            <select value={selected} onChange={(e) => setSelected(e.target.value)}>
-              <option value="">Выберите студента...</option>
-              {unassigned
-                .filter((u) => u.teacherId !== currentUser.id)
-                .map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.fullName} {u.group ? `(${u.group})` : ''}
-                    {u.teacherId ? ' — у другого преподавателя' : ''}
-                  </option>
-                ))}
-            </select>
-          </div>
-          <button type="button" className="btn-primary" onClick={handleAssign} disabled={!selected}>
-            Закрепить за мной
+      <div className="card" style={{ marginBottom: '1.25rem' }}>
+        <h3 style={{ marginTop: 0 }}>Закрепить группу за собой</h3>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <select
+            value={selectedGroup}
+            onChange={(e) => setSelectedGroup(e.target.value)}
+            style={{ minWidth: 220 }}
+          >
+            <option value="">Выберите группу…</option>
+            {freeGroups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name} · {educationFormLabels[g.educationForm]}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={!selectedGroup}
+            onClick={() => {
+              if (!selectedGroup) return
+              void assignGroupToTeacher(selectedGroup)
+              setSelectedGroup('')
+            }}
+          >
+            Закрепить
           </button>
         </div>
-      </div>
-
-      <div className="card table-wrap">
-        <h3 style={{ marginTop: 0 }}>Закреплённые студенты ({myStudents.length})</h3>
-        {myStudents.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)' }}>Пока нет закреплённых студентов</p>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>ФИО</th>
-                <th>Логин</th>
-                <th>Группа</th>
-                <th>Курс</th>
-                <th>Предметов</th>
-              </tr>
-            </thead>
-            <tbody>
-              {myStudents.map((u) => {
-                const subjCount = data.subjects.filter(
-                  (s) => s.teacherId === currentUser.id && s.studentIds.includes(u.id)
-                ).length
-                return (
-                  <tr key={u.id}>
-                    <td>{u.fullName}</td>
-                    <td>{u.login}</td>
-                    <td>{u.group || '—'}</td>
-                    <td>{u.course ?? '—'}</td>
-                    <td>{subjCount}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+        {!freeGroups.length && (
+          <p style={{ margin: '0.75rem 0 0', fontSize: '0.9rem', opacity: 0.7 }}>
+            Нет свободных групп — создайте группу в разделе администратора или попросите назначить
+          </p>
         )}
       </div>
+
+      {myGroups.length === 0 ? (
+        <div className="card empty-state">У вас пока нет закреплённых групп</div>
+      ) : (
+        <div className="grid-2">
+          {myGroups.map((g) => {
+            const members = students.filter((s) => g.studentIds.includes(s.id))
+            return (
+              <div key={g.id} className="card">
+                <h3 style={{ margin: '0 0 0.35rem' }}>{g.name}</h3>
+                <p style={{ margin: 0, fontSize: '0.9rem', opacity: 0.75 }}>
+                  {educationFormLabels[g.educationForm]}
+                  {g.specialty ? ` · ${g.specialty}` : ''}
+                  {g.course ? ` · курс ${g.course}` : ''}
+                </p>
+                <p style={{ fontSize: '0.9rem' }}>Студентов: {members.length}</p>
+                <ul style={{ margin: 0, paddingLeft: '1.1rem' }}>
+                  {members.map((s) => (
+                    <li key={s.id}>{s.fullName}</li>
+                  ))}
+                  {!members.length && <li style={{ opacity: 0.7 }}>Состав пуст</li>}
+                </ul>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

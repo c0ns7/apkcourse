@@ -164,7 +164,7 @@
   border: 1px solid transparent;
   cursor: pointer;
   font: inherit;
-  max-width: 11rem;
+  max-width: 18rem;
 }
 
 .sg-role-trigger.open,
@@ -183,11 +183,11 @@
 
 .sg-role-name {
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 8rem;
+  max-width: 14rem;
 }
 
 .sg-role-label {

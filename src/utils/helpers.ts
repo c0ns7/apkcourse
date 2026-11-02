@@ -1,4 +1,14 @@
-import type { AssignmentType, GradeMode, Role, Submission, User } from '../types'
+import type {
+  AdminScope,
+  AppData,
+  Assignment,
+  AssignmentType,
+  EducationForm,
+  GradeMode,
+  Role,
+  Submission,
+  User,
+} from '../types'
 
 export function userRoles(u: Pick<User, 'role' | 'roles'>): Role[] {
   if (u.roles?.length) return u.roles
@@ -13,6 +23,118 @@ export const roleHomePath: Record<Role, string> = {
   student: '/student',
   teacher: '/teacher',
   admin: '/admin',
+}
+
+export const EDUCATION_FORMS: EducationForm[] = [
+  'fulltime',
+  'distance',
+  'retraining',
+  'professional',
+]
+
+export const educationFormLabels: Record<EducationForm, string> = {
+  fulltime: 'Очная форма',
+  distance: 'Заочное обучение',
+  retraining: 'Профессиональная переподготовка',
+  professional: 'Профессиональное обучение',
+}
+
+export const adminScopeLabels: Record<AdminScope, string> = {
+  all: 'Полные права',
+  fulltime: 'Очная форма',
+  distance: 'Заочное обучение',
+  retraining: 'Проф. переподготовка',
+  professional: 'Проф. обучение',
+}
+
+export function normalizeAdminScopes(scopes?: AdminScope[] | null): AdminScope[] {
+  if (!scopes?.length) return ['all']
+  if (scopes.includes('all')) return ['all']
+  return [...new Set(scopes.filter((s) => s !== 'all'))] as AdminScope[]
+}
+
+/** Может ли админ управлять данной формой обучения */
+export function adminCanManageForm(
+  user: Pick<User, 'isRoot' | 'adminScopes' | 'role' | 'roles'> | null | undefined,
+  form: EducationForm
+): boolean {
+  if (!user) return false
+  if (user.isRoot) return true
+  if (!hasRole(user, 'admin')) return false
+  const scopes = normalizeAdminScopes(user.adminScopes)
+  return scopes.includes('all') || scopes.includes(form)
+}
+
+export function adminManagedForms(
+  user: Pick<User, 'isRoot' | 'adminScopes' | 'role' | 'roles'> | null | undefined
+): EducationForm[] {
+  if (!user) return []
+  if (user.isRoot) return [...EDUCATION_FORMS]
+  const scopes = normalizeAdminScopes(user.adminScopes)
+  if (scopes.includes('all')) return [...EDUCATION_FORMS]
+  return EDUCATION_FORMS.filter((f) => scopes.includes(f))
+}
+
+export function studentEducationForm(
+  user: Pick<User, 'educationForm' | 'groupId'>,
+  groups: AppData['groups']
+): EducationForm {
+  if (user.groupId) {
+    const g = groups.find((x) => x.id === user.groupId)
+    if (g) return g.educationForm
+  }
+  return user.educationForm || 'fulltime'
+}
+
+/** Видно ли задание студенту (группы + форма обучения) */
+export function isAssignmentForStudent(
+  assignment: Assignment,
+  student: Pick<User, 'id' | 'groupId' | 'educationForm'>,
+  data: Pick<AppData, 'groups' | 'subjects'>
+): boolean {
+  const subject = data.subjects.find((s) => s.id === assignment.subjectId)
+  if (!subject?.studentIds.includes(student.id) && !(assignment.groupIds?.length)) {
+    // not enrolled and no group targeting
+  }
+  if (subject && !subject.studentIds.includes(student.id)) {
+    if (!assignment.groupIds?.length || !student.groupId) return false
+    if (!assignment.groupIds.includes(student.groupId)) return false
+  }
+  if (assignment.groupIds?.length) {
+    if (!student.groupId || !assignment.groupIds.includes(student.groupId)) return false
+  }
+  if (assignment.educationForms?.length) {
+    const form = studentEducationForm(student, data.groups)
+    if (!assignment.educationForms.includes(form)) return false
+  }
+  return true
+}
+
+/** Модуль доступен, если предыдущий полностью сдан (оценён) */
+export function isModuleUnlocked(
+  moduleId: string | undefined,
+  subjectId: string,
+  studentId: string,
+  data: Pick<AppData, 'modules' | 'assignments' | 'submissions'>
+): boolean {
+  if (!moduleId) return true
+  const modules = data.modules
+    .filter((m) => m.subjectId === subjectId)
+    .slice()
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+  const idx = modules.findIndex((m) => m.id === moduleId)
+  if (idx <= 0) return true
+  const prev = modules[idx - 1]
+  const prevAssignments = data.assignments.filter((a) => a.moduleId === prev.id)
+  if (!prevAssignments.length) return true
+  return prevAssignments.every((a) => {
+    const sub = data.submissions.find(
+      (s) => s.assignmentId === a.id && s.studentId === studentId
+    )
+    if (!sub || sub.status !== 'graded') return false
+    if (sub.gradeMode === 'pass_fail') return Boolean(sub.passed)
+    return true
+  })
 }
 
 export type DeadlineStatus = 'ok' | 'soon' | 'overdue' | 'today'

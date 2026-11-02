@@ -26,7 +26,7 @@ const studentNav: NavItem[] = [
 const teacherNav: NavItem[] = [
   { to: '/teacher', label: 'Кабинет', icon: 'home', end: true },
   { to: '/teacher/subjects', label: 'Предметы', icon: 'book' },
-  { to: '/teacher/students', label: 'Студенты', icon: 'users' },
+  { to: '/teacher/students', label: 'Мои группы', icon: 'users' },
   { to: '/teacher/grading', label: 'Проверка', icon: 'check' },
   { to: '/teacher/announcements', label: 'Объявления', icon: 'megaphone' },
   { to: '/teacher/chat', label: 'Чаты', icon: 'chat' },
@@ -35,6 +35,8 @@ const teacherNav: NavItem[] = [
 const adminNav: NavItem[] = [
   { to: '/admin', label: 'Панель', icon: 'dashboard', end: true },
   { to: '/admin/users', label: 'Пользователи', icon: 'user' },
+  { to: '/admin/groups', label: 'Группы', icon: 'users' },
+  { to: '/admin/disciplines', label: 'Дисциплины', icon: 'book' },
   { to: '/admin/announcements', label: 'Объявления', icon: 'megaphone' },
 ]
 
@@ -138,7 +140,9 @@ export function Layout() {
         onClick={() => setRoleMenuOpen((v) => !v)}
       >
         <span className="sg-role-trigger-text">
-          <span className="sg-role-name">{currentUser.fullName.split(' ')[0]}</span>
+          <span className="sg-role-name" title={currentUser.fullName}>
+            {currentUser.fullName}
+          </span>
           <span className="sg-role-label">{roleLabels[currentUser.role]}</span>
         </span>
         <Icon name="chevronDown" size={16} strokeWidth={2.25} />
@@ -167,8 +171,8 @@ export function Layout() {
       )}
     </div>
   ) : (
-    <Link to="/profile" className="sg-user-chip sg-desktop-only">
-      {currentUser.fullName.split(' ')[0]}
+    <Link to="/profile" className="sg-user-chip sg-desktop-only" title={currentUser.fullName}>
+      {currentUser.fullName}
     </Link>
   )
 

@@ -117,6 +117,44 @@ export const api = {
     request<DataResponse>(`/api/students/${studentId}/assign-teacher`, {
       method: 'POST',
     }),
+  assignGroupToTeacher: (groupId: string, teacherId?: string) =>
+    request<DataResponse>(`/api/groups/${groupId}/assign-teacher`, {
+      method: 'POST',
+      body: JSON.stringify({ teacherId }),
+    }),
+  createGroup: (fields: Record<string, unknown>) =>
+    request<DataResponse>('/api/groups', {
+      method: 'POST',
+      body: JSON.stringify(fields),
+    }),
+  updateGroup: (id: string, fields: Record<string, unknown>) =>
+    request<DataResponse>(`/api/groups/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(fields),
+    }),
+  deleteGroup: (id: string) =>
+    request<DataResponse>(`/api/groups/${id}`, { method: 'DELETE' }),
+  addStudentToGroup: (groupId: string, studentId: string) =>
+    request<DataResponse>(`/api/groups/${groupId}/students`, {
+      method: 'POST',
+      body: JSON.stringify({ studentId }),
+    }),
+  removeStudentFromGroup: (groupId: string, studentId: string) =>
+    request<DataResponse>(`/api/groups/${groupId}/students/${studentId}`, {
+      method: 'DELETE',
+    }),
+  createModule: (subjectId: string, fields: Record<string, unknown>) =>
+    request<DataResponse>(`/api/subjects/${subjectId}/modules`, {
+      method: 'POST',
+      body: JSON.stringify(fields),
+    }),
+  updateModule: (id: string, fields: Record<string, unknown>) =>
+    request<DataResponse>(`/api/modules/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(fields),
+    }),
+  deleteModule: (id: string) =>
+    request<DataResponse>(`/api/modules/${id}`, { method: 'DELETE' }),
   createAssignment: (subjectId: string, fields: object) =>
     request<DataResponse>(`/api/subjects/${subjectId}/assignments`, {
       method: 'POST',
@@ -189,4 +227,6 @@ export const emptyData: AppData = {
   chatThreads: [],
   chatMessages: [],
   disciplineCatalog: [],
+  groups: [],
+  modules: [],
 }

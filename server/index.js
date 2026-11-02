@@ -20,6 +20,9 @@ import {
   isRootLogin,
   normalizeRoles,
   pickPrimaryRole,
+  normalizeEducationForm,
+  normalizeAdminScopes,
+  parseJson,
 } from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -202,9 +205,12 @@ app.post('/api/users', auth, requireRole('admin'), (req, res) => {
     role,
     roles: rolesBody,
     group,
+    groupId,
     specialty,
     course,
     academicYear,
+    educationForm,
+    adminScopes,
   } = req.body
   if (!login || !password || !fullName) {
     return res.status(400).json({ error: 'Заполните обязательные поля' })
@@ -230,11 +236,27 @@ app.post('/api/users', auth, requireRole('admin'), (req, res) => {
   const id = uid()
   const isStudent = roles.includes('student')
   const isTeacher = roles.includes('teacher')
+  const isAdmin = roles.includes('admin')
+  let resolvedGroupId = isStudent ? groupId || null : null
+  let groupName = isStudent ? group || null : null
+  let edu = normalizeEducationForm(educationForm)
+  if (resolvedGroupId) {
+    const g = db.prepare('SELECT * FROM study_groups WHERE id = ?').get(resolvedGroupId)
+    if (g) {
+      groupName = g.name
+      edu = normalizeEducationForm(g.education_form)
+    }
+  }
+  const scopes = isAdmin
+    ? JSON.stringify(normalizeAdminScopes(adminScopes, false))
+    : null
+
   db.prepare(`
     INSERT INTO users (
-      id, login, password_hash, full_name, role, roles_json, group_name, specialty, course,
-      academic_year, personal_data_consent, enabled_assignment_types_json, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+      id, login, password_hash, full_name, role, roles_json, group_name, group_id, specialty, course,
+      academic_year, education_form, admin_scopes_json, personal_data_consent,
+      enabled_assignment_types_json, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
   `).run(
     id,
     loginNorm,
@@ -242,10 +264,13 @@ app.post('/api/users', auth, requireRole('admin'), (req, res) => {
     String(fullName).trim(),
     primaryRole,
     JSON.stringify(roles),
-    isStudent ? group || null : null,
+    groupName,
+    resolvedGroupId,
     isStudent ? specialty || null : null,
     isStudent ? Number(course) || null : null,
     academicYear || '2026-2027',
+    edu,
+    scopes,
     isTeacher
       ? JSON.stringify([
           'essay', 'test', 'table', 'scheme', 'matching', 'qa', 'quiz', 'distribution', 'other',
@@ -253,6 +278,13 @@ app.post('/api/users', auth, requireRole('admin'), (req, res) => {
       : null,
     new Date().toISOString().slice(0, 10)
   )
+
+  if (resolvedGroupId && isStudent) {
+    db.prepare('INSERT OR IGNORE INTO group_students (group_id, student_id) VALUES (?, ?)').run(
+      resolvedGroupId,
+      id
+    )
+  }
 
   logActivity(
     req.user,
@@ -278,9 +310,12 @@ app.patch('/api/users/:id', auth, requireRole('admin'), (req, res) => {
     password,
     roles: rolesBody,
     group,
+    groupId,
     specialty,
     course,
     academicYear,
+    educationForm,
+    adminScopes,
   } = req.body || {}
 
   let existingRoles = null
@@ -325,12 +360,45 @@ app.patch('/api/users/:id', auth, requireRole('admin'), (req, res) => {
   const primaryRole = pickPrimaryRole(roles)
   const isStudent = roles.includes('student')
   const isTeacher = roles.includes('teacher')
+  const isAdmin = roles.includes('admin')
   const wasTeacher = userHasRole(target, 'teacher')
   let enabled = target.enabled_assignment_types_json
   if (isTeacher && !wasTeacher && !enabled) {
     enabled = JSON.stringify([
       'essay', 'test', 'table', 'scheme', 'matching', 'qa', 'quiz', 'distribution', 'other',
     ])
+  }
+
+  let nextGroupId = isStudent
+    ? groupId !== undefined
+      ? groupId || null
+      : target.group_id
+    : null
+  let nextGroupName = isStudent
+    ? group != null
+      ? group || null
+      : target.group_name
+    : null
+  let nextEdu = normalizeEducationForm(
+    educationForm !== undefined ? educationForm : target.education_form
+  )
+  if (nextGroupId) {
+    const g = db.prepare('SELECT * FROM study_groups WHERE id = ?').get(nextGroupId)
+    if (g) {
+      nextGroupName = g.name
+      if (educationForm === undefined) nextEdu = normalizeEducationForm(g.education_form)
+    }
+  }
+
+  let scopesJson = target.admin_scopes_json
+  if (isAdmin) {
+    if (adminScopes !== undefined || !scopesJson) {
+      scopesJson = JSON.stringify(
+        normalizeAdminScopes(adminScopes, isRootLogin(target.login))
+      )
+    }
+  } else {
+    scopesJson = null
   }
 
   db.prepare(`
@@ -341,9 +409,12 @@ app.patch('/api/users/:id', auth, requireRole('admin'), (req, res) => {
       role = ?,
       roles_json = ?,
       group_name = ?,
+      group_id = ?,
       specialty = ?,
       course = ?,
       academic_year = ?,
+      education_form = ?,
+      admin_scopes_json = ?,
       enabled_assignment_types_json = ?
     WHERE id = ?
   `).run(
@@ -352,15 +423,33 @@ app.patch('/api/users/:id', auth, requireRole('admin'), (req, res) => {
     name,
     primaryRole,
     JSON.stringify(roles),
-    isStudent ? (group != null ? group || null : target.group_name) : null,
+    nextGroupName,
+    nextGroupId,
     isStudent ? (specialty != null ? specialty || null : target.specialty) : null,
     isStudent
       ? (course != null ? Number(course) || null : target.course)
       : null,
     academicYear != null ? academicYear || null : target.academic_year,
+    nextEdu,
+    scopesJson,
     enabled,
     target.id
   )
+
+  if (isStudent && nextGroupId) {
+    if (target.group_id && target.group_id !== nextGroupId) {
+      db.prepare('DELETE FROM group_students WHERE group_id = ? AND student_id = ?').run(
+        target.group_id,
+        target.id
+      )
+    }
+    db.prepare('INSERT OR IGNORE INTO group_students (group_id, student_id) VALUES (?, ?)').run(
+      nextGroupId,
+      target.id
+    )
+  } else if (target.group_id) {
+    db.prepare('DELETE FROM group_students WHERE student_id = ?').run(target.id)
+  }
 
   logActivity(
     req.user,
@@ -419,15 +508,51 @@ app.put('/api/subjects/:id', auth, requireRole('teacher', 'admin'), (req, res) =
   if (req.user.role === 'teacher' && subject.teacher_id !== req.user.id) {
     return res.status(403).json({ error: 'Недостаточно прав' })
   }
+
+  let teacherId = subject.teacher_id
+  if (req.body.teacherId && req.body.teacherId !== subject.teacher_id) {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Сменить преподавателя может только администратор' })
+    }
+    const teacher = db.prepare('SELECT * FROM users WHERE id = ?').get(req.body.teacherId)
+    if (!teacher || !userHasRole(teacher, 'teacher')) {
+      return res.status(400).json({ error: 'Укажите действующего преподавателя' })
+    }
+    teacherId = teacher.id
+  }
+
   db.prepare(`
-    UPDATE subjects SET title = ?, description = ?, color = ? WHERE id = ?
+    UPDATE subjects SET title = ?, description = ?, color = ?, teacher_id = ? WHERE id = ?
   `).run(
     req.body.title ?? subject.title,
     req.body.description ?? subject.description,
     req.body.color ?? subject.color,
+    teacherId,
     subject.id
   )
-  logActivity(req.user, 'Изменение предмета', req.body.title ?? subject.title)
+
+  if (Array.isArray(req.body.groupIds)) {
+    db.prepare('DELETE FROM subject_groups WHERE subject_id = ?').run(subject.id)
+    const ins = db.prepare(
+      'INSERT OR IGNORE INTO subject_groups (subject_id, group_id) VALUES (?, ?)'
+    )
+    const addStudent = db.prepare(
+      'INSERT OR IGNORE INTO subject_students (subject_id, student_id) VALUES (?, ?)'
+    )
+    for (const gid of req.body.groupIds) {
+      ins.run(subject.id, gid)
+      const members = db
+        .prepare('SELECT student_id FROM group_students WHERE group_id = ?')
+        .all(gid)
+      for (const m of members) addStudent.run(subject.id, m.student_id)
+    }
+  }
+
+  logActivity(
+    req.user,
+    teacherId !== subject.teacher_id ? 'Смена преподавателя предмета' : 'Изменение предмета',
+    req.body.title ?? subject.title
+  )
   res.json({ data: loadAppData() })
 })
 
@@ -471,10 +596,244 @@ app.delete('/api/subjects/:id/students/:studentId', auth, requireRole('teacher')
 })
 
 app.post('/api/students/:id/assign-teacher', auth, requireRole('teacher'), (req, res) => {
-  const student = db.prepare("SELECT * FROM users WHERE id = ? AND role = 'student'").get(req.params.id)
-  if (!student) return res.status(404).json({ error: 'Студент не найден' })
+  const student = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id)
+  if (!student || !userHasRole(student, 'student')) {
+    return res.status(404).json({ error: 'Студент не найден' })
+  }
   db.prepare('UPDATE users SET teacher_id = ? WHERE id = ?').run(req.user.id, student.id)
   logActivity(req.user, 'Закрепление студента', student.full_name)
+  res.json({ data: loadAppData() })
+})
+
+/** Закрепить группу за преподавателем */
+app.post('/api/groups/:id/assign-teacher', auth, requireRole('teacher', 'admin'), (req, res) => {
+  const group = db.prepare('SELECT * FROM study_groups WHERE id = ?').get(req.params.id)
+  if (!group) return res.status(404).json({ error: 'Группа не найдена' })
+  const teacherId = req.user.role === 'admin' ? req.body.teacherId || req.user.id : req.user.id
+  const teacher = db.prepare('SELECT * FROM users WHERE id = ?').get(teacherId)
+  if (!teacher || !userHasRole(teacher, 'teacher')) {
+    return res.status(400).json({ error: 'Укажите преподавателя' })
+  }
+  db.prepare('UPDATE study_groups SET teacher_id = ? WHERE id = ?').run(teacher.id, group.id)
+  const members = db.prepare('SELECT student_id FROM group_students WHERE group_id = ?').all(group.id)
+  const upd = db.prepare('UPDATE users SET teacher_id = ? WHERE id = ?')
+  for (const m of members) upd.run(teacher.id, m.student_id)
+  logActivity(req.user, 'Закрепление группы', `${group.name} → ${teacher.full_name}`)
+  res.json({ data: loadAppData() })
+})
+
+function resolveAssignmentStudentIds(subjectId, groupIds, educationForms) {
+  const enrolled = db
+    .prepare('SELECT student_id FROM subject_students WHERE subject_id = ?')
+    .all(subjectId)
+    .map((r) => r.student_id)
+
+  let ids = enrolled
+  if (Array.isArray(groupIds) && groupIds.length) {
+    const fromGroups = new Set()
+    const q = db.prepare('SELECT student_id FROM group_students WHERE group_id = ?')
+    for (const gid of groupIds) {
+      for (const row of q.all(gid)) fromGroups.add(row.student_id)
+    }
+    ids = ids.filter((id) => fromGroups.has(id))
+    // If subject has no enrolled yet, take group members directly
+    if (!enrolled.length) ids = [...fromGroups]
+  }
+
+  if (Array.isArray(educationForms) && educationForms.length) {
+    ids = ids.filter((id) => {
+      const u = db.prepare('SELECT education_form, group_id FROM users WHERE id = ?').get(id)
+      if (!u) return false
+      let form = normalizeEducationForm(u.education_form)
+      if (u.group_id) {
+        const g = db.prepare('SELECT education_form FROM study_groups WHERE id = ?').get(u.group_id)
+        if (g) form = normalizeEducationForm(g.education_form)
+      }
+      return educationForms.includes(form)
+    })
+  }
+  return [...new Set(ids)]
+}
+
+// ——— Study groups ———
+app.post('/api/groups', auth, requireRole('admin'), (req, res) => {
+  const { name, educationForm, academicYear, specialty, course, teacherId } = req.body
+  if (!name?.trim()) return res.status(400).json({ error: 'Укажите название группы' })
+  const exists = db
+    .prepare('SELECT id FROM study_groups WHERE name = ? COLLATE NOCASE')
+    .get(name.trim())
+  if (exists) return res.status(409).json({ error: 'Группа с таким названием уже есть' })
+  const id = uid()
+  db.prepare(`
+    INSERT INTO study_groups (id, name, education_form, academic_year, specialty, course, teacher_id, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    name.trim(),
+    normalizeEducationForm(educationForm),
+    academicYear || null,
+    specialty || null,
+    course != null ? Number(course) || null : null,
+    teacherId || null,
+    new Date().toISOString().slice(0, 10)
+  )
+  logActivity(req.user, 'Создание группы', name.trim())
+  res.status(201).json({ data: loadAppData() })
+})
+
+app.patch('/api/groups/:id', auth, requireRole('admin', 'teacher'), (req, res) => {
+  const group = db.prepare('SELECT * FROM study_groups WHERE id = ?').get(req.params.id)
+  if (!group) return res.status(404).json({ error: 'Не найдена' })
+  if (req.user.role === 'teacher' && group.teacher_id !== req.user.id) {
+    return res.status(403).json({ error: 'Недостаточно прав' })
+  }
+  const name = req.body.name != null ? String(req.body.name).trim() : group.name
+  if (!name) return res.status(400).json({ error: 'Укажите название' })
+  if (name.toLowerCase() !== group.name.toLowerCase()) {
+    const taken = db
+      .prepare('SELECT id FROM study_groups WHERE name = ? COLLATE NOCASE AND id != ?')
+      .get(name, group.id)
+    if (taken) return res.status(409).json({ error: 'Группа с таким названием уже есть' })
+  }
+  db.prepare(`
+    UPDATE study_groups SET
+      name = ?, education_form = ?, academic_year = ?, specialty = ?, course = ?, teacher_id = ?
+    WHERE id = ?
+  `).run(
+    name,
+    normalizeEducationForm(req.body.educationForm ?? group.education_form),
+    req.body.academicYear !== undefined ? req.body.academicYear || null : group.academic_year,
+    req.body.specialty !== undefined ? req.body.specialty || null : group.specialty,
+    req.body.course !== undefined
+      ? (req.body.course != null ? Number(req.body.course) || null : null)
+      : group.course,
+    req.body.teacherId !== undefined ? req.body.teacherId || null : group.teacher_id,
+    group.id
+  )
+  db.prepare('UPDATE users SET group_name = ? WHERE group_id = ?').run(name, group.id)
+  logActivity(req.user, 'Изменение группы', name)
+  res.json({ data: loadAppData() })
+})
+
+app.delete('/api/groups/:id', auth, requireRole('admin'), (req, res) => {
+  const group = db.prepare('SELECT * FROM study_groups WHERE id = ?').get(req.params.id)
+  if (!group) return res.status(404).json({ error: 'Не найдена' })
+  db.prepare('UPDATE users SET group_id = NULL, group_name = NULL WHERE group_id = ?').run(group.id)
+  db.prepare('DELETE FROM study_groups WHERE id = ?').run(group.id)
+  logActivity(req.user, 'Удаление группы', group.name)
+  res.json({ data: loadAppData() })
+})
+
+app.post('/api/groups/:id/students', auth, requireRole('admin', 'teacher'), (req, res) => {
+  const group = db.prepare('SELECT * FROM study_groups WHERE id = ?').get(req.params.id)
+  if (!group) return res.status(404).json({ error: 'Группа не найдена' })
+  if (req.user.role === 'teacher' && group.teacher_id !== req.user.id) {
+    return res.status(403).json({ error: 'Недостаточно прав' })
+  }
+  const studentId = req.body.studentId
+  const student = db.prepare('SELECT * FROM users WHERE id = ?').get(studentId)
+  if (!student || !userHasRole(student, 'student')) {
+    return res.status(400).json({ error: 'Укажите студента' })
+  }
+  // Remove from previous group membership
+  if (student.group_id && student.group_id !== group.id) {
+    db.prepare('DELETE FROM group_students WHERE group_id = ? AND student_id = ?').run(
+      student.group_id,
+      student.id
+    )
+  }
+  db.prepare('INSERT OR IGNORE INTO group_students (group_id, student_id) VALUES (?, ?)').run(
+    group.id,
+    student.id
+  )
+  db.prepare(
+    `UPDATE users SET group_id = ?, group_name = ?, education_form = ?,
+      specialty = COALESCE(?, specialty), course = COALESCE(?, course),
+      academic_year = COALESCE(?, academic_year),
+      teacher_id = COALESCE(?, teacher_id)
+     WHERE id = ?`
+  ).run(
+    group.id,
+    group.name,
+    group.education_form,
+    group.specialty,
+    group.course,
+    group.academic_year,
+    group.teacher_id,
+    student.id
+  )
+  logActivity(req.user, 'Студент в группу', `${student.full_name} → ${group.name}`)
+  res.json({ data: loadAppData() })
+})
+
+app.delete('/api/groups/:id/students/:studentId', auth, requireRole('admin', 'teacher'), (req, res) => {
+  const group = db.prepare('SELECT * FROM study_groups WHERE id = ?').get(req.params.id)
+  if (!group) return res.status(404).json({ error: 'Группа не найдена' })
+  if (req.user.role === 'teacher' && group.teacher_id !== req.user.id) {
+    return res.status(403).json({ error: 'Недостаточно прав' })
+  }
+  db.prepare('DELETE FROM group_students WHERE group_id = ? AND student_id = ?').run(
+    group.id,
+    req.params.studentId
+  )
+  db.prepare(
+    `UPDATE users SET group_id = NULL, group_name = NULL WHERE id = ? AND group_id = ?`
+  ).run(req.params.studentId, group.id)
+  logActivity(req.user, 'Студент из группы', `${req.params.studentId} ← ${group.name}`)
+  res.json({ data: loadAppData() })
+})
+
+// ——— Course modules ———
+app.post('/api/subjects/:id/modules', auth, requireRole('teacher', 'admin'), (req, res) => {
+  const subject = db.prepare('SELECT * FROM subjects WHERE id = ?').get(req.params.id)
+  if (!subject) return res.status(404).json({ error: 'Предмет не найден' })
+  if (req.user.role === 'teacher' && subject.teacher_id !== req.user.id) {
+    return res.status(403).json({ error: 'Недостаточно прав' })
+  }
+  const title = String(req.body.title || '').trim()
+  if (!title) return res.status(400).json({ error: 'Укажите название модуля' })
+  const maxOrder = db
+    .prepare('SELECT MAX(sort_order) AS m FROM course_modules WHERE subject_id = ?')
+    .get(subject.id)
+  const sortOrder =
+    req.body.sortOrder != null ? Number(req.body.sortOrder) : (maxOrder?.m ?? -1) + 1
+  const id = uid()
+  db.prepare(`
+    INSERT INTO course_modules (id, subject_id, title, description, sort_order)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(id, subject.id, title, req.body.description || '', sortOrder)
+  logActivity(req.user, 'Создание модуля', `${title} (${subject.title})`)
+  res.status(201).json({ data: loadAppData() })
+})
+
+app.patch('/api/modules/:id', auth, requireRole('teacher', 'admin'), (req, res) => {
+  const mod = db.prepare('SELECT * FROM course_modules WHERE id = ?').get(req.params.id)
+  if (!mod) return res.status(404).json({ error: 'Модуль не найден' })
+  const subject = db.prepare('SELECT * FROM subjects WHERE id = ?').get(mod.subject_id)
+  if (req.user.role === 'teacher' && subject?.teacher_id !== req.user.id) {
+    return res.status(403).json({ error: 'Недостаточно прав' })
+  }
+  db.prepare(`
+    UPDATE course_modules SET title = ?, description = ?, sort_order = ? WHERE id = ?
+  `).run(
+    req.body.title ?? mod.title,
+    req.body.description ?? mod.description,
+    req.body.sortOrder != null ? Number(req.body.sortOrder) : mod.sort_order,
+    mod.id
+  )
+  res.json({ data: loadAppData() })
+})
+
+app.delete('/api/modules/:id', auth, requireRole('teacher', 'admin'), (req, res) => {
+  const mod = db.prepare('SELECT * FROM course_modules WHERE id = ?').get(req.params.id)
+  if (!mod) return res.status(404).json({ error: 'Модуль не найден' })
+  const subject = db.prepare('SELECT * FROM subjects WHERE id = ?').get(mod.subject_id)
+  if (req.user.role === 'teacher' && subject?.teacher_id !== req.user.id) {
+    return res.status(403).json({ error: 'Недостаточно прав' })
+  }
+  db.prepare('UPDATE assignments SET module_id = NULL WHERE module_id = ?').run(mod.id)
+  db.prepare('DELETE FROM course_modules WHERE id = ?').run(mod.id)
+  logActivity(req.user, 'Удаление модуля', mod.title)
   res.json({ data: loadAppData() })
 })
 
@@ -484,17 +843,39 @@ app.post('/api/subjects/:id/assignments', auth, requireRole('teacher'), (req, re
   if (!subject || subject.teacher_id !== req.user.id) {
     return res.status(404).json({ error: 'Предмет не найден' })
   }
-  const { title, description, deadline, type, attachments, payload, maxScore } = req.body
+  const {
+    title,
+    description,
+    deadline,
+    type,
+    attachments,
+    payload,
+    maxScore,
+    groupIds,
+    educationForms,
+    moduleId,
+  } = req.body
   if (!title?.trim() || !deadline) {
     return res.status(400).json({ error: 'Укажите название и срок' })
   }
 
+  if (moduleId) {
+    const mod = db.prepare('SELECT * FROM course_modules WHERE id = ? AND subject_id = ?').get(
+      moduleId,
+      subject.id
+    )
+    if (!mod) return res.status(400).json({ error: 'Модуль не принадлежит предмету' })
+  }
+
   const assignmentId = uid()
   const createdAt = new Date().toISOString().slice(0, 10)
+  const gIds = Array.isArray(groupIds) ? groupIds : []
+  const eForms = Array.isArray(educationForms) ? educationForms : []
   db.prepare(`
     INSERT INTO assignments (
-      id, subject_id, title, description, deadline, max_score, created_at, type, attachments_json, payload_json
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      id, subject_id, title, description, deadline, max_score, created_at, type,
+      attachments_json, payload_json, group_ids_json, education_forms_json, module_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     assignmentId,
     subject.id,
@@ -505,20 +886,26 @@ app.post('/api/subjects/:id/assignments', auth, requireRole('teacher'), (req, re
     createdAt,
     type || null,
     JSON.stringify(attachments || []),
-    payload ? JSON.stringify(payload) : null
+    payload ? JSON.stringify(payload) : null,
+    JSON.stringify(gIds),
+    JSON.stringify(eForms),
+    moduleId || null
   )
 
-  const students = db
-    .prepare('SELECT student_id FROM subject_students WHERE subject_id = ?')
-    .all(subject.id)
+  const studentIds = resolveAssignmentStudentIds(subject.id, gIds, eForms)
+  // Enroll group members onto subject if needed
+  const enroll = db.prepare(
+    'INSERT OR IGNORE INTO subject_students (subject_id, student_id) VALUES (?, ?)'
+  )
+  for (const sid of studentIds) enroll.run(subject.id, sid)
 
   const insertSub = db.prepare(`
     INSERT INTO submissions (id, assignment_id, student_id, content, status)
     VALUES (?, ?, ?, '', 'pending')
   `)
-  for (const s of students) {
-    insertSub.run(uid(), assignmentId, s.student_id)
-    notify(s.student_id, 'Новое задание', title.trim(), `/student/assignment/${assignmentId}`)
+  for (const sid of studentIds) {
+    insertSub.run(uid(), assignmentId, sid)
+    notify(sid, 'Новое задание', title.trim(), `/student/assignment/${assignmentId}`)
   }
 
   logActivity(req.user, 'Создание задания', `${title.trim()} (${subject.title})`)
@@ -535,7 +922,8 @@ app.put('/api/assignments/:id', auth, requireRole('teacher'), (req, res) => {
   db.prepare(`
     UPDATE assignments SET
       title = ?, description = ?, deadline = ?, type = ?,
-      attachments_json = ?, payload_json = ?
+      attachments_json = ?, payload_json = ?,
+      group_ids_json = ?, education_forms_json = ?, module_id = ?
     WHERE id = ?
   `).run(
     req.body.title ?? assignment.title,
@@ -546,6 +934,17 @@ app.put('/api/assignments/:id', auth, requireRole('teacher'), (req, res) => {
     req.body.payload !== undefined
       ? JSON.stringify(req.body.payload)
       : assignment.payload_json,
+    JSON.stringify(
+      req.body.groupIds !== undefined
+        ? req.body.groupIds
+        : parseJson(assignment.group_ids_json, [])
+    ),
+    JSON.stringify(
+      req.body.educationForms !== undefined
+        ? req.body.educationForms
+        : parseJson(assignment.education_forms_json, [])
+    ),
+    req.body.moduleId !== undefined ? req.body.moduleId || null : assignment.module_id,
     assignment.id
   )
   logActivity(req.user, 'Изменение задания', req.body.title ?? assignment.title)
@@ -568,6 +967,38 @@ app.delete('/api/assignments/:id', auth, requireRole('teacher'), (req, res) => {
 app.post('/api/assignments/:id/submit', auth, requireRole('student'), (req, res) => {
   const assignment = db.prepare('SELECT * FROM assignments WHERE id = ?').get(req.params.id)
   if (!assignment) return res.status(404).json({ error: 'Задание не найдено' })
+
+  if (assignment.module_id) {
+    const modules = db
+      .prepare(
+        'SELECT * FROM course_modules WHERE subject_id = ? ORDER BY sort_order ASC, title ASC'
+      )
+      .all(assignment.subject_id)
+    const idx = modules.findIndex((m) => m.id === assignment.module_id)
+    if (idx > 0) {
+      const prev = modules[idx - 1]
+      const prevAssignments = db
+        .prepare('SELECT id FROM assignments WHERE module_id = ?')
+        .all(prev.id)
+      for (const pa of prevAssignments) {
+        const sub = db
+          .prepare(
+            `SELECT status, grade_mode, passed FROM submissions
+             WHERE assignment_id = ? AND student_id = ?`
+          )
+          .get(pa.id, req.user.id)
+        const ok =
+          sub &&
+          sub.status === 'graded' &&
+          (sub.grade_mode !== 'pass_fail' || Boolean(sub.passed))
+        if (!ok) {
+          return res.status(403).json({
+            error: 'Сначала завершите предыдущий модуль курса',
+          })
+        }
+      }
+    }
+  }
 
   const { content, answers, attachments } = req.body
   const existing = db
@@ -685,20 +1116,37 @@ app.post('/api/submissions/:id/return', auth, requireRole('teacher'), (req, res)
 
 // ——— Announcements ———
 app.post('/api/announcements', auth, requireRole('teacher', 'admin'), (req, res) => {
-  const { title, body, audience, group, pinned } = req.body
+  const { title, body, audience, group, groupIds, pinned } = req.body
   if (!title?.trim() || !body?.trim()) {
     return res.status(400).json({ error: 'Заполните заголовок и текст' })
   }
+  const ids = Array.isArray(groupIds)
+    ? groupIds
+    : group
+      ? (() => {
+          const g = db
+            .prepare('SELECT id FROM study_groups WHERE name = ? COLLATE NOCASE')
+            .get(group)
+          return g ? [g.id] : []
+        })()
+      : []
+  if (audience === 'group' && !ids.length) {
+    return res.status(400).json({ error: 'Выберите хотя бы одну группу' })
+  }
+  const firstName = ids.length
+    ? db.prepare('SELECT name FROM study_groups WHERE id = ?').get(ids[0])?.name
+    : null
   db.prepare(`
-    INSERT INTO announcements (id, title, body, author_id, audience, group_name, pinned, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO announcements (id, title, body, author_id, audience, group_name, group_ids_json, pinned, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     uid(),
     title.trim(),
     body.trim(),
     req.user.id,
     audience === 'group' ? 'group' : 'all',
-    audience === 'group' ? group || null : null,
+    audience === 'group' ? firstName || null : null,
+    JSON.stringify(audience === 'group' ? ids : []),
     pinned ? 1 : 0,
     new Date().toISOString()
   )

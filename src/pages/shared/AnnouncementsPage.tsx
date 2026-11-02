@@ -12,24 +12,25 @@ export function AnnouncementsPage({ canCreate = false }: { canCreate?: boolean }
   const [body, setBody] = useState('')
   const [pinned, setPinned] = useState(false)
   const [audience, setAudience] = useState<AnnouncementAudience>('all')
-  const [group, setGroup] = useState('')
+  const [groupIds, setGroupIds] = useState<string[]>([])
 
   if (!currentUser) return null
 
-  const groups = useMemo(() => {
-    const set = new Set(
-      data.users
-        .filter((u) => (u.role === 'student' || u.roles?.includes('student')) && u.group)
-        .map((u) => u.group!)
-    )
-    return Array.from(set).sort()
-  }, [data.users])
+  const groups = useMemo(
+    () => [...data.groups].sort((a, b) => a.name.localeCompare(b.name, 'ru')),
+    [data.groups]
+  )
 
   const items = [...data.announcements]
     .filter((a) => {
       if (currentUser.role === 'admin' || currentUser.role === 'teacher') return true
       if (a.audience === 'all') return true
-      return a.group && a.group === currentUser.group
+      const ids = a.groupIds?.length
+        ? a.groupIds
+        : a.group
+          ? [groups.find((g) => g.name === a.group)?.id].filter(Boolean) as string[]
+          : []
+      return Boolean(currentUser.groupId && ids.includes(currentUser.groupId))
     })
     .sort((a, b) => {
       if (a.pinned && !b.pinned) return -1
@@ -37,17 +38,36 @@ export function AnnouncementsPage({ canCreate = false }: { canCreate?: boolean }
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     })
 
+  const toggleGroup = (id: string) => {
+    setGroupIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  }
+
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim()) return
-    if (audience === 'group' && !group) return
-    addAnnouncement(title.trim(), body.trim(), audience, audience === 'group' ? group : undefined, pinned)
+    if (audience === 'group' && !groupIds.length) return
+    addAnnouncement(
+      title.trim(),
+      body.trim(),
+      audience,
+      audience === 'group' ? groupIds : undefined,
+      pinned
+    )
     setTitle('')
     setBody('')
     setPinned(false)
     setAudience('all')
-    setGroup('')
+    setGroupIds([])
     setShowModal(false)
+  }
+
+  const audienceLabel = (a: (typeof items)[0]) => {
+    if (a.audience !== 'group') return 'Для всех'
+    const names = (a.groupIds || [])
+      .map((id) => groups.find((g) => g.id === id)?.name)
+      .filter(Boolean)
+    if (names.length) return names.join(', ')
+    return a.group ? `Группа ${a.group}` : 'Группы'
   }
 
   return (
@@ -75,7 +95,7 @@ export function AnnouncementsPage({ canCreate = false }: { canCreate?: boolean }
                 <div className="announcement-header">
                   {a.pinned && <span className="badge badge-accent">Закреплено</span>}
                   {a.audience === 'group' ? (
-                    <span className="badge badge-submitted">Группа {a.group}</span>
+                    <span className="badge badge-submitted">{audienceLabel(a)}</span>
                   ) : (
                     <span className="badge">Для всех</span>
                   )}
@@ -120,20 +140,27 @@ export function AnnouncementsPage({ canCreate = false }: { canCreate?: boolean }
                   onChange={(e) => setAudience(e.target.value as AnnouncementAudience)}
                 >
                   <option value="all">Для всех</option>
-                  <option value="group">Для группы</option>
+                  <option value="group">Для выбран групп</option>
                 </select>
               </div>
               {audience === 'group' && (
                 <div className="form-group">
-                  <label>Группа</label>
-                  <select value={group} onChange={(e) => setGroup(e.target.value)} required>
-                    <option value="">Выберите группу...</option>
+                  <label>Группы</label>
+                  <div className="filter-chips" style={{ margin: 0 }}>
                     {groups.map((g) => (
-                      <option key={g} value={g}>
-                        {g}
-                      </option>
+                      <button
+                        key={g.id}
+                        type="button"
+                        className={`chip ${groupIds.includes(g.id) ? 'active' : ''}`}
+                        onClick={() => toggleGroup(g.id)}
+                      >
+                        {g.name}
+                      </button>
                     ))}
-                  </select>
+                  </div>
+                  {!groups.length && (
+                    <p style={{ fontSize: '0.85rem', opacity: 0.7 }}>Сначала создайте группы</p>
+                  )}
                 </div>
               )}
               <label className="check-option" style={{ marginBottom: '1rem' }}>
@@ -152,7 +179,11 @@ export function AnnouncementsPage({ canCreate = false }: { canCreate?: boolean }
                 <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
                   Отмена
                 </button>
-                <button type="submit" className="btn-primary">
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={audience === 'group' && !groupIds.length}
+                >
                   Опубликовать
                 </button>
               </div>

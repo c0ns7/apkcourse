@@ -6,7 +6,14 @@ import { SearchInput } from '../../components/SearchInput'
 import { AttachmentList } from '../../components/AttachmentFile'
 import { DeadlineBadge } from '../../components/DeadlineBadge'
 import { EmptyState } from '../../components/EmptyState'
-import { assignmentTypeLabels, formatDate, getDeadlineStatus, GRADE_MAX } from '../../utils/helpers'
+import {
+  assignmentTypeLabels,
+  formatDate,
+  getDeadlineStatus,
+  GRADE_MAX,
+  isAssignmentForStudent,
+  isModuleUnlocked,
+} from '../../utils/helpers'
 
 type Filter = 'all' | 'pending' | 'submitted' | 'graded' | 'overdue'
 
@@ -25,13 +32,17 @@ export function StudentAssignments() {
   if (!currentUser) return null
 
   const mySubjects = data.subjects.filter((s) => s.studentIds.includes(currentUser.id))
-  const myAssignments = data.assignments.filter((a) =>
-    mySubjects.some((s) => s.id === a.subjectId)
+  const myAssignments = data.assignments.filter(
+    (a) =>
+      mySubjects.some((s) => s.id === a.subjectId) &&
+      isAssignmentForStudent(a, currentUser, data)
   )
   const mySubmissions = data.submissions.filter((s) => s.studentId === currentUser.id)
 
   const filtered = useMemo(() => {
     return myAssignments.filter((a) => {
+      const unlocked = isModuleUnlocked(a.moduleId, a.subjectId, currentUser.id, data)
+      if (!unlocked) return filter === 'all'
       const sub = mySubmissions.find((s) => s.assignmentId === a.id)
       const status = sub?.status ?? 'pending'
       const overdue = getDeadlineStatus(a.deadline) === 'overdue' && status !== 'graded' && status !== 'submitted'
@@ -45,7 +56,7 @@ export function StudentAssignments() {
       if (q && !a.title.toLowerCase().includes(q)) return false
       return true
     })
-  }, [myAssignments, mySubmissions, filter, search])
+  }, [myAssignments, mySubmissions, filter, search, currentUser.id, data])
 
   const chips: { id: Filter; label: string }[] = [
     { id: 'all', label: 'Все' },
@@ -81,6 +92,25 @@ export function StudentAssignments() {
           {filtered.map((a) => {
             const subject = data.subjects.find((s) => s.id === a.subjectId)
             const sub = mySubmissions.find((s) => s.assignmentId === a.id)
+            const unlocked = isModuleUnlocked(a.moduleId, a.subjectId, currentUser.id, data)
+            const mod = a.moduleId
+              ? data.modules.find((m) => m.id === a.moduleId)
+              : null
+            if (!unlocked) {
+              return (
+                <div key={a.id} className="card assignment-card" style={{ opacity: 0.72 }}>
+                  <div className="assignment-card-top">
+                    <span className="badge badge-submitted">{subject?.title}</span>
+                    <span className="badge">Закрыто</span>
+                  </div>
+                  <h3>{a.title}</h3>
+                  <p style={{ fontSize: '0.9rem', margin: 0 }}>
+                    Сначала завершите предыдущий модуль
+                    {mod ? ` (перед «${mod.title}»)` : ''}
+                  </p>
+                </div>
+              )
+            }
             return (
               <Link
                 key={a.id}
@@ -93,6 +123,7 @@ export function StudentAssignments() {
                   <DeadlineBadge deadline={a.deadline} />
                 </div>
                 <h3>{a.title}</h3>
+                {mod && <span className="badge">{mod.title}</span>}
                 {a.type && (
                   <span className="badge" style={{ background: 'var(--accent-soft)', color: '#78350f' }}>
                     {assignmentTypeLabels[a.type]}

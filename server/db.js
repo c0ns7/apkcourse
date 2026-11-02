@@ -166,8 +166,158 @@ export function initDb() {
   `)
 
   migrateUserRoles()
+  migrateExtendedSchema()
   ensureRoot()
   ensureCatalog()
+}
+
+function tableColumns(table) {
+  return db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name)
+}
+
+function addColumnIfMissing(table, column, ddl) {
+  if (!tableColumns(table).includes(column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`)
+  }
+}
+
+const VALID_EDU = ['fulltime', 'distance', 'retraining', 'professional']
+
+export function normalizeEducationForm(value, fallback = 'fulltime') {
+  return VALID_EDU.includes(value) ? value : fallback
+}
+
+export function normalizeAdminScopes(scopes, isRoot = false) {
+  if (isRoot) return ['all']
+  const list = Array.isArray(scopes) ? scopes : []
+  const unique = [...new Set(list.map(String))]
+  if (unique.includes('all') || !unique.length) return ['all']
+  return unique.filter((s) => s === 'all' || VALID_EDU.includes(s))
+}
+
+function migrateExtendedSchema() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS study_groups (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+      education_form TEXT NOT NULL DEFAULT 'fulltime',
+      academic_year TEXT,
+      specialty TEXT,
+      course INTEGER,
+      teacher_id TEXT,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS group_students (
+      group_id TEXT NOT NULL,
+      student_id TEXT NOT NULL,
+      PRIMARY KEY (group_id, student_id),
+      FOREIGN KEY (group_id) REFERENCES study_groups(id) ON DELETE CASCADE,
+      FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS subject_groups (
+      subject_id TEXT NOT NULL,
+      group_id TEXT NOT NULL,
+      PRIMARY KEY (subject_id, group_id),
+      FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
+      FOREIGN KEY (group_id) REFERENCES study_groups(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS course_modules (
+      id TEXT PRIMARY KEY,
+      subject_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
+    );
+  `)
+
+  addColumnIfMissing('users', 'roles_json', 'roles_json TEXT')
+  addColumnIfMissing('users', 'group_id', 'group_id TEXT')
+  addColumnIfMissing('users', 'education_form', "education_form TEXT DEFAULT 'fulltime'")
+  addColumnIfMissing('users', 'admin_scopes_json', 'admin_scopes_json TEXT')
+
+  addColumnIfMissing('assignments', 'group_ids_json', "group_ids_json TEXT DEFAULT '[]'")
+  addColumnIfMissing('assignments', 'education_forms_json', "education_forms_json TEXT DEFAULT '[]'")
+  addColumnIfMissing('assignments', 'module_id', 'module_id TEXT')
+
+  addColumnIfMissing('announcements', 'group_ids_json', "group_ids_json TEXT DEFAULT '[]'")
+
+  // Migrate free-text group_name → study_groups
+  const named = db
+    .prepare(
+      `SELECT DISTINCT group_name FROM users
+       WHERE group_name IS NOT NULL AND TRIM(group_name) != '' AND group_id IS NULL`
+    )
+    .all()
+  const findGroup = db.prepare(
+    'SELECT id FROM study_groups WHERE name = ? COLLATE NOCASE'
+  )
+  const insertGroup = db.prepare(`
+    INSERT INTO study_groups (id, name, education_form, academic_year, specialty, course, created_at)
+    VALUES (?, ?, 'fulltime', ?, ?, ?, ?)
+  `)
+  const linkStudent = db.prepare(
+    'INSERT OR IGNORE INTO group_students (group_id, student_id) VALUES (?, ?)'
+  )
+  const setUserGroup = db.prepare('UPDATE users SET group_id = ? WHERE id = ?')
+
+  for (const row of named) {
+    const name = String(row.group_name).trim()
+    if (!name) continue
+    let g = findGroup.get(name)
+    if (!g) {
+      const id = uid()
+      const sample = db
+        .prepare(
+          `SELECT academic_year, specialty, course FROM users
+           WHERE group_name = ? COLLATE NOCASE LIMIT 1`
+        )
+        .get(name)
+      insertGroup.run(
+        id,
+        name,
+        sample?.academic_year || null,
+        sample?.specialty || null,
+        sample?.course ?? null,
+        new Date().toISOString().slice(0, 10)
+      )
+      g = { id }
+    }
+    const members = db
+      .prepare(
+        `SELECT id, role, roles_json FROM users WHERE group_name = ? COLLATE NOCASE`
+      )
+      .all(name)
+    for (const m of members) {
+      setUserGroup.run(g.id, m.id)
+      const roles = normalizeRoles(parseJson(m.roles_json, null) || [m.role], m.role)
+      if (roles.includes('student') || m.role === 'student') {
+        linkStudent.run(g.id, m.id)
+      }
+    }
+  }
+
+  // Default education_form / admin scopes
+  db.prepare(
+    `UPDATE users SET education_form = 'fulltime' WHERE education_form IS NULL OR education_form = ''`
+  ).run()
+  const admins = db
+    .prepare(`SELECT id, role, roles_json, admin_scopes_json FROM users`)
+    .all()
+  for (const a of admins) {
+    if (a.admin_scopes_json) continue
+    const roles = normalizeRoles(parseJson(a.roles_json, null) || [a.role], a.role)
+    if (roles.includes('admin')) {
+      db.prepare('UPDATE users SET admin_scopes_json = ? WHERE id = ?').run(
+        JSON.stringify(['all']),
+        a.id
+      )
+    }
+  }
 }
 
 const VALID_ROLES = ['student', 'teacher', 'admin']
@@ -299,6 +449,10 @@ export function mapUser(row, activeRole) {
   const roles = normalizeRoles(parseJson(row.roles_json, null) || [row.role], row.role)
   const role =
     activeRole && roles.includes(activeRole) ? activeRole : pickPrimaryRole(roles)
+  const isRoot = isRootLogin(row.login)
+  const adminScopes = roles.includes('admin')
+    ? normalizeAdminScopes(parseJson(row.admin_scopes_json, null), isRoot)
+    : undefined
   return {
     id: row.id,
     login: row.login,
@@ -306,22 +460,43 @@ export function mapUser(row, activeRole) {
     role,
     roles,
     group: row.group_name || undefined,
+    groupId: row.group_id || undefined,
     teacherId: row.teacher_id || undefined,
     specialty: row.specialty || undefined,
     course: row.course ?? undefined,
     academicYear: row.academic_year || undefined,
+    educationForm: normalizeEducationForm(row.education_form),
+    adminScopes,
     disciplines: parseJson(row.disciplines_json, []),
     disciplineIds: parseJson(row.discipline_ids_json, []),
     enabledAssignmentTypes: parseJson(row.enabled_assignment_types_json, undefined),
     personalDataConsent: Boolean(row.personal_data_consent),
     bio: row.bio || undefined,
     createdAt: row.created_at,
-    isRoot: isRootLogin(row.login),
+    isRoot,
   }
 }
 
 export function loadAppData() {
   const users = db.prepare('SELECT * FROM users ORDER BY full_name').all().map(mapUser)
+
+  const groupRows = db.prepare('SELECT * FROM study_groups ORDER BY name').all()
+  const groupMembers = db.prepare('SELECT group_id, student_id FROM group_students').all()
+  const membersByGroup = new Map()
+  for (const row of groupMembers) {
+    if (!membersByGroup.has(row.group_id)) membersByGroup.set(row.group_id, [])
+    membersByGroup.get(row.group_id).push(row.student_id)
+  }
+  const groups = groupRows.map((g) => ({
+    id: g.id,
+    name: g.name,
+    educationForm: normalizeEducationForm(g.education_form),
+    academicYear: g.academic_year || undefined,
+    specialty: g.specialty || undefined,
+    course: g.course ?? undefined,
+    teacherId: g.teacher_id || undefined,
+    studentIds: membersByGroup.get(g.id) || [],
+  }))
 
   const subjectsRaw = db.prepare('SELECT * FROM subjects ORDER BY title').all()
   const subjectStudents = db.prepare('SELECT subject_id, student_id FROM subject_students').all()
@@ -330,6 +505,12 @@ export function loadAppData() {
     if (!bySubject.has(row.subject_id)) bySubject.set(row.subject_id, [])
     bySubject.get(row.subject_id).push(row.student_id)
   }
+  const subjectGroups = db.prepare('SELECT subject_id, group_id FROM subject_groups').all()
+  const groupsBySubject = new Map()
+  for (const row of subjectGroups) {
+    if (!groupsBySubject.has(row.subject_id)) groupsBySubject.set(row.subject_id, [])
+    groupsBySubject.get(row.subject_id).push(row.group_id)
+  }
   const subjects = subjectsRaw.map((s) => ({
     id: s.id,
     title: s.title,
@@ -337,7 +518,19 @@ export function loadAppData() {
     teacherId: s.teacher_id,
     color: s.color || '#336699',
     studentIds: bySubject.get(s.id) || [],
+    groupIds: groupsBySubject.get(s.id) || [],
   }))
+
+  const modules = db
+    .prepare('SELECT * FROM course_modules ORDER BY sort_order ASC, title ASC')
+    .all()
+    .map((m) => ({
+      id: m.id,
+      subjectId: m.subject_id,
+      title: m.title,
+      description: m.description || undefined,
+      sortOrder: m.sort_order ?? 0,
+    }))
 
   const assignments = db.prepare('SELECT * FROM assignments ORDER BY created_at DESC').all().map((a) => ({
     id: a.id,
@@ -350,6 +543,9 @@ export function loadAppData() {
     type: a.type || undefined,
     attachments: parseJson(a.attachments_json, []),
     payload: parseJson(a.payload_json, undefined),
+    groupIds: parseJson(a.group_ids_json, []),
+    educationForms: parseJson(a.education_forms_json, []),
+    moduleId: a.module_id || undefined,
   }))
 
   const submissions = db.prepare('SELECT * FROM submissions').all().map((s) => ({
@@ -368,16 +564,24 @@ export function loadAppData() {
     gradedAt: s.graded_at || undefined,
   }))
 
-  const announcements = db.prepare('SELECT * FROM announcements ORDER BY created_at DESC').all().map((a) => ({
-    id: a.id,
-    title: a.title,
-    body: a.body,
-    authorId: a.author_id,
-    audience: a.audience,
-    group: a.group_name || undefined,
-    pinned: Boolean(a.pinned),
-    createdAt: a.created_at,
-  }))
+  const announcements = db.prepare('SELECT * FROM announcements ORDER BY created_at DESC').all().map((a) => {
+    const groupIds = parseJson(a.group_ids_json, [])
+    if ((!groupIds || !groupIds.length) && a.group_name) {
+      const g = groups.find((x) => x.name.toLowerCase() === String(a.group_name).toLowerCase())
+      if (g) groupIds.push(g.id)
+    }
+    return {
+      id: a.id,
+      title: a.title,
+      body: a.body,
+      authorId: a.author_id,
+      audience: a.audience,
+      group: a.group_name || undefined,
+      groupIds,
+      pinned: Boolean(a.pinned),
+      createdAt: a.created_at,
+    }
+  })
 
   const notifications = db.prepare('SELECT * FROM notifications ORDER BY created_at DESC').all().map((n) => ({
     id: n.id,
@@ -430,6 +634,8 @@ export function loadAppData() {
     chatThreads,
     chatMessages,
     disciplineCatalog,
+    groups,
+    modules,
   }
 }
 

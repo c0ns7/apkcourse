@@ -28,9 +28,12 @@ export type RegisterFields = {
   role: Role
   roles?: Role[]
   group?: string
+  groupId?: string
   specialty?: string
   course?: number
   academicYear?: string
+  educationForm?: import('../types').EducationForm
+  adminScopes?: import('../types').AdminScope[]
   disciplineIds?: string[]
   disciplines?: string[]
   personalDataConsent?: boolean
@@ -93,10 +96,20 @@ interface AppContextValue {
     title: string,
     body: string,
     audience: AnnouncementAudience,
-    group?: string,
+    groupIds?: string[],
     pinned?: boolean
   ) => Promise<void>
   deleteAnnouncement: (id: string) => Promise<void>
+  createGroup: (fields: Record<string, unknown>) => Promise<string | null>
+  updateGroup: (id: string, fields: Record<string, unknown>) => Promise<string | null>
+  deleteGroup: (id: string) => Promise<void>
+  addStudentToGroup: (groupId: string, studentId: string) => Promise<void>
+  removeStudentFromGroup: (groupId: string, studentId: string) => Promise<void>
+  assignGroupToTeacher: (groupId: string, teacherId?: string) => Promise<void>
+  createModule: (subjectId: string, fields: Record<string, unknown>) => Promise<void>
+  updateModule: (id: string, fields: Record<string, unknown>) => Promise<void>
+  deleteModule: (id: string) => Promise<void>
+  reassignSubjectTeacher: (subjectId: string, teacherId: string) => Promise<string | null>
   markNotificationRead: (id: string) => Promise<void>
   markAllNotificationsRead: () => Promise<void>
   getOrCreateChatThread: (otherUserId: string, subjectId?: string) => Promise<string>
@@ -174,7 +187,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const next = await api.getData()
         setCurrentUser(result.user)
         setData(next)
-        toast(`Добро пожаловать, ${result.user.fullName.split(' ')[0]}!`)
+        toast(`Добро пожаловать, ${result.user.fullName}!`)
         return { user: result.user }
       } catch (e) {
         return { error: e instanceof Error ? e.message : 'Ошибка входа' }
@@ -271,7 +284,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       try {
         const result = await api.updateProfile(fields)
         setData(result.data)
-        setCurrentUser(result.user)
+        setCurrentUser((prev) => {
+          const next = result.user
+          if (!prev) return next
+          const nextRoles = next.roles?.length ? next.roles : prev.roles
+          const stillActive =
+            nextRoles && nextRoles.includes(prev.role) ? prev.role : nextRoles?.[0] || prev.role
+          return { ...next, role: stillActive, roles: nextRoles }
+        })
         toast('Профиль сохранён')
       } catch (e) {
         toast(e instanceof Error ? e.message : 'Ошибка сохранения', 'error')
@@ -287,20 +307,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [updateProfile]
   )
 
+  const mergeCurrentUser = useCallback((prev: User | null, users: User[]) => {
+    if (!prev) return prev
+    const fromData = users.find((u) => u.id === prev.id)
+    if (!fromData) return prev
+    const nextRoles = fromData.roles?.length ? fromData.roles : prev.roles
+    const stillActive =
+      nextRoles && nextRoles.includes(prev.role) ? prev.role : nextRoles?.[0] || prev.role
+    return { ...fromData, role: stillActive, roles: nextRoles }
+  }, [])
+
   const wrap = useCallback(
     async (fn: () => Promise<{ data: AppData }>, ok?: string, info?: boolean) => {
       try {
         const result = await fn()
         setData(result.data)
-        setCurrentUser((prev) =>
-          prev ? result.data.users.find((u) => u.id === prev.id) || prev : prev
-        )
+        setCurrentUser((prev) => mergeCurrentUser(prev, result.data.users))
         if (ok) toast(ok, info ? 'info' : undefined)
       } catch (e) {
         toast(e instanceof Error ? e.message : 'Ошибка', 'error')
       }
     },
-    [toast]
+    [toast, mergeCurrentUser]
   )
 
   const addSubject = useCallback(
@@ -408,11 +436,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       title: string,
       body: string,
       audience: AnnouncementAudience,
-      group?: string,
+      groupIds?: string[],
       pinned = false
     ) => {
       await wrap(
-        () => api.addAnnouncement({ title, body, audience, group, pinned }),
+        () => api.addAnnouncement({ title, body, audience, groupIds, pinned }),
         'Объявление опубликовано'
       )
     },
@@ -422,6 +450,91 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const deleteAnnouncement = useCallback(
     (id: string) => wrap(() => api.deleteAnnouncement(id), 'Объявление удалено', true),
     [wrap]
+  )
+
+  const createGroup = useCallback(
+    async (fields: Record<string, unknown>) => {
+      try {
+        const result = await api.createGroup(fields)
+        setData(result.data)
+        setCurrentUser((prev) => mergeCurrentUser(prev, result.data.users))
+        toast('Группа создана')
+        return null
+      } catch (e) {
+        return e instanceof Error ? e.message : 'Ошибка'
+      }
+    },
+    [toast, mergeCurrentUser]
+  )
+
+  const updateGroup = useCallback(
+    async (id: string, fields: Record<string, unknown>) => {
+      try {
+        const result = await api.updateGroup(id, fields)
+        setData(result.data)
+        setCurrentUser((prev) => mergeCurrentUser(prev, result.data.users))
+        toast('Группа обновлена')
+        return null
+      } catch (e) {
+        return e instanceof Error ? e.message : 'Ошибка'
+      }
+    },
+    [toast, mergeCurrentUser]
+  )
+
+  const deleteGroup = useCallback(
+    (id: string) => wrap(() => api.deleteGroup(id), 'Группа удалена', true),
+    [wrap]
+  )
+
+  const addStudentToGroup = useCallback(
+    (groupId: string, studentId: string) =>
+      wrap(() => api.addStudentToGroup(groupId, studentId), 'Студент добавлен в группу'),
+    [wrap]
+  )
+
+  const removeStudentFromGroup = useCallback(
+    (groupId: string, studentId: string) =>
+      wrap(() => api.removeStudentFromGroup(groupId, studentId), 'Студент убран из группы', true),
+    [wrap]
+  )
+
+  const assignGroupToTeacher = useCallback(
+    (groupId: string, teacherId?: string) =>
+      wrap(() => api.assignGroupToTeacher(groupId, teacherId), 'Группа закреплена'),
+    [wrap]
+  )
+
+  const createModule = useCallback(
+    (subjectId: string, fields: Record<string, unknown>) =>
+      wrap(() => api.createModule(subjectId, fields), 'Модуль создан'),
+    [wrap]
+  )
+
+  const updateModule = useCallback(
+    (id: string, fields: Record<string, unknown>) =>
+      wrap(() => api.updateModule(id, fields), 'Модуль обновлён'),
+    [wrap]
+  )
+
+  const deleteModule = useCallback(
+    (id: string) => wrap(() => api.deleteModule(id), 'Модуль удалён', true),
+    [wrap]
+  )
+
+  const reassignSubjectTeacher = useCallback(
+    async (subjectId: string, teacherId: string) => {
+      try {
+        const result = await api.updateSubject(subjectId, { teacherId })
+        setData(result.data)
+        setCurrentUser((prev) => mergeCurrentUser(prev, result.data.users))
+        toast('Преподаватель предмета изменён')
+        return null
+      } catch (e) {
+        return e instanceof Error ? e.message : 'Ошибка'
+      }
+    },
+    [toast, mergeCurrentUser]
   )
 
   const markNotificationRead = useCallback(
@@ -495,6 +608,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       deleteUser,
       addAnnouncement,
       deleteAnnouncement,
+      createGroup,
+      updateGroup,
+      deleteGroup,
+      addStudentToGroup,
+      removeStudentFromGroup,
+      assignGroupToTeacher,
+      createModule,
+      updateModule,
+      deleteModule,
+      reassignSubjectTeacher,
       markNotificationRead,
       markAllNotificationsRead,
       getOrCreateChatThread,
@@ -528,6 +651,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       deleteUser,
       addAnnouncement,
       deleteAnnouncement,
+      createGroup,
+      updateGroup,
+      deleteGroup,
+      addStudentToGroup,
+      removeStudentFromGroup,
+      assignGroupToTeacher,
+      createModule,
+      updateModule,
+      deleteModule,
+      reassignSubjectTeacher,
       markNotificationRead,
       markAllNotificationsRead,
       getOrCreateChatThread,
