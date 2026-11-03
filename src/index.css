@@ -1020,26 +1020,43 @@ tr:hover td { background: rgba(128, 128, 128, 0.04); }
   border-radius: 999px;
 }
 
+.schedule-board {
+  width: 100%;
+  min-width: 0;
+}
+
+.schedule-board-empty {
+  margin: 0.75rem 0 0;
+  opacity: 0.7;
+  font-size: 0.9rem;
+}
+
 .schedule-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 0.5rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.65rem;
+  width: 100%;
+  min-width: 0;
 }
 
 .schedule-day {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 0.75rem;
+  padding: 0.65rem 0.7rem;
   min-height: 120px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .schedule-day h4 {
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.55rem;
   font-size: 0.8rem;
   font-family: var(--font-sans);
   color: var(--text-muted);
   text-align: center;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .schedule-item {
@@ -1076,18 +1093,24 @@ tr:hover td { background: rgba(128, 128, 128, 0.04); }
   font-size: 0.72rem;
   font-weight: 700;
   color: #3a5f8a;
-  margin-bottom: 0.3rem;
+  margin-bottom: 0.35rem;
   letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .schedule-card {
   background: rgba(26, 77, 109, 0.08);
   border-left: 3px solid var(--primary);
-  padding: 0.4rem 0.45rem;
+  padding: 0.45rem 0.5rem;
   border-radius: 6px;
   margin-bottom: 0.35rem;
-  font-size: 0.75rem;
-  line-height: 1.35;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  min-width: 0;
+}
+
+.schedule-card:last-child {
+  margin-bottom: 0;
 }
 
 .schedule-card-title {
@@ -1095,48 +1118,47 @@ tr:hover td { background: rgba(128, 128, 128, 0.04); }
   font-size: 0.8rem;
   font-weight: 700;
   color: var(--text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
 }
 
 .schedule-card-meta {
   display: block;
   color: var(--text-muted);
   font-size: 0.72rem;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
+/* Подгруппы всегда столбиком — не жмутся в узких колонках дней */
 .schedule-subgrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.35rem;
-  margin-top: 0.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
 }
 
 .schedule-subcol {
   min-width: 0;
-  background: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.65);
   border: 1px solid rgba(22, 51, 85, 0.1);
   border-radius: 8px;
-  padding: 0.35rem;
+  padding: 0.4rem 0.45rem;
 }
 
 .schedule-subbadge {
   display: inline-block;
-  font-size: 0.65rem;
+  font-size: 0.62rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   color: #1a4f8a;
   background: rgba(40, 90, 150, 0.12);
   border-radius: 999px;
   padding: 0.12rem 0.4rem;
   margin-bottom: 0.3rem;
-}
-
-.schedule-subempty {
-  display: block;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  text-align: center;
-  padding: 0.35rem 0;
+  white-space: nowrap;
 }
 
 .schedule-subcol .schedule-card {
@@ -1154,6 +1176,43 @@ tr:hover td { background: rgba(128, 128, 128, 0.04); }
   background: rgba(210, 175, 60, 0.22);
   border-radius: 999px;
   padding: 0.1rem 0.35rem;
+}
+
+@media (max-width: 1100px) {
+  .schedule-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .schedule-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+  }
+
+  .schedule-day {
+    padding: 0.6rem 0.65rem;
+  }
+
+  .schedule-card-title {
+    font-size: 0.78rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .schedule-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .schedule-day h4 {
+    text-align: left;
+    font-size: 0.85rem;
+    color: var(--text);
+  }
+
+  .schedule-slot-time {
+    font-size: 0.75rem;
+  }
 }
 
 .announcement-card.pinned {

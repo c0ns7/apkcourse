@@ -257,7 +257,8 @@ export const DEFAULT_ENABLED_ASSIGNMENT_TYPES: AssignmentType[] = [
   'other',
 ]
 
-export const dayLabels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб']
+/** Рабочие дни расписания (без сб/вс) */
+export const dayLabels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт']
 
 export const ACADEMIC_YEARS = ['2025-2026', '2026-2027', '2027-2028', '2028-2029']
 

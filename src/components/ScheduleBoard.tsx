@@ -20,6 +20,24 @@ function LessonCard({ item }: { item: ScheduleItem }) {
   )
 }
 
+function SubBlock({
+  label,
+  items,
+}: {
+  label: string
+  items: ScheduleItem[]
+}) {
+  if (!items.length) return null
+  return (
+    <div className="schedule-subcol">
+      <span className="schedule-subbadge">{label}</span>
+      {items.map((item) => (
+        <LessonCard key={item.id} item={item} />
+      ))}
+    </div>
+  )
+}
+
 function TimeSlot({
   timeStart,
   timeEnd,
@@ -46,22 +64,8 @@ function TimeSlot({
 
       {hasSubs && (
         <div className="schedule-subgrid">
-          <div className="schedule-subcol">
-            <span className="schedule-subbadge">1 подгруппа</span>
-            {sub1.length ? (
-              sub1.map((item) => <LessonCard key={item.id} item={item} />)
-            ) : (
-              <span className="schedule-subempty">—</span>
-            )}
-          </div>
-          <div className="schedule-subcol">
-            <span className="schedule-subbadge">2 подгруппа</span>
-            {sub2.length ? (
-              sub2.map((item) => <LessonCard key={item.id} item={item} />)
-            ) : (
-              <span className="schedule-subempty">—</span>
-            )}
-          </div>
+          <SubBlock label="1 подгр." items={sub1} />
+          <SubBlock label="2 подгр." items={sub2} />
         </div>
       )}
     </div>
@@ -69,44 +73,48 @@ function TimeSlot({
 }
 
 export function ScheduleBoard({ lessons, week, emptyText = 'Нет занятий' }: Props) {
-  const visible = lessons.filter((L) => lessonVisibleOnWeek(L.week, week))
+  const visible = lessons.filter(
+    (L) => L.day >= 0 && L.day <= 4 && lessonVisibleOnWeek(L.week, week)
+  )
 
   return (
-    <div className="schedule-grid">
-      {dayLabels.map((day, i) => {
-        const dayItems = visible.filter((s) => s.day === i)
-        const times = [
-          ...new Set(dayItems.map((s) => `${s.timeStart}|${s.timeEnd}`)),
-        ].sort((a, b) => a.localeCompare(b))
+    <div className="schedule-board">
+      <div className="schedule-grid">
+        {dayLabels.map((day, i) => {
+          const dayItems = visible.filter((s) => s.day === i)
+          const times = [
+            ...new Set(dayItems.map((s) => `${s.timeStart}|${s.timeEnd}`)),
+          ].sort((a, b) => a.localeCompare(b))
 
-        return (
-          <div key={day} className="schedule-day">
-            <h4>{day}</h4>
-            {times.length === 0 ? (
-              <p className="schedule-day-empty">—</p>
-            ) : (
-              times.map((key) => {
-                const [timeStart, timeEnd] = key.split('|')
-                const slotItems = dayItems
-                  .filter((s) => s.timeStart === timeStart && s.timeEnd === timeEnd)
-                  .slice()
-                  .sort((a, b) => String(a.subgroup || '').localeCompare(String(b.subgroup || '')))
-                return (
-                  <TimeSlot
-                    key={key}
-                    timeStart={timeStart}
-                    timeEnd={timeEnd}
-                    items={slotItems}
-                  />
-                )
-              })
-            )}
-          </div>
-        )
-      })}
-      {!visible.length && (
-        <p style={{ gridColumn: '1 / -1', opacity: 0.7, margin: 0 }}>{emptyText}</p>
-      )}
+          return (
+            <div key={day} className="schedule-day">
+              <h4>{day}</h4>
+              {times.length === 0 ? (
+                <p className="schedule-day-empty">—</p>
+              ) : (
+                times.map((key) => {
+                  const [timeStart, timeEnd] = key.split('|')
+                  const slotItems = dayItems
+                    .filter((s) => s.timeStart === timeStart && s.timeEnd === timeEnd)
+                    .slice()
+                    .sort((a, b) =>
+                      String(a.subgroup || '').localeCompare(String(b.subgroup || ''))
+                    )
+                  return (
+                    <TimeSlot
+                      key={key}
+                      timeStart={timeStart}
+                      timeEnd={timeEnd}
+                      items={slotItems}
+                    />
+                  )
+                })
+              )}
+            </div>
+          )
+        })}
+      </div>
+      {!visible.length && <p className="schedule-board-empty">{emptyText}</p>}
     </div>
   )
 }

@@ -464,8 +464,9 @@
 }
 
 .landing-schedule-inner {
-  max-width: 1120px;
+  max-width: 1180px;
   margin: 0 auto;
+  min-width: 0;
 }
 
 .landing-schedule-kicker {
@@ -513,7 +514,8 @@
 }
 
 .landing-schedule-controls select {
-  min-width: 8rem;
+  min-width: min(100%, 16rem);
+  max-width: 100%;
   min-height: 2.4rem;
   border-radius: 10px;
   border: 1px solid rgba(22, 51, 85, 0.18);
@@ -530,6 +532,26 @@
   background: #fff;
   border: 1px solid rgba(22, 51, 85, 0.08);
   box-shadow: 0 8px 22px rgba(22, 51, 85, 0.06);
+}
+
+@media (max-width: 640px) {
+  .landing-schedule {
+    padding-left: 0.9rem;
+    padding-right: 0.9rem;
+  }
+
+  .landing-schedule-controls {
+    width: 100%;
+  }
+
+  .landing-schedule-controls label {
+    flex: 1 1 100%;
+  }
+
+  .landing-schedule-controls select {
+    width: 100%;
+    min-width: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

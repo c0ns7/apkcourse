@@ -285,7 +285,7 @@ function parseSheet(name, sheet) {
     if (dayCell && DAY_MAP[dayCell] != null) {
       currentDay = DAY_MAP[dayCell]
     }
-    if (currentDay == null || currentDay > 5) continue
+    if (currentDay == null || currentDay > 4) continue // только Пн–Пт
 
     for (const g of groups) {
       const time =
