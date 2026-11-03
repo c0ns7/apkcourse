@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext'
 import { PageHeader } from '../../components/PageHeader'
 import { ScheduleBoard } from '../../components/ScheduleBoard'
 import { getStudyWeekNumber } from '../../utils/helpers'
+import { matchStudentSchedule } from '../../utils/scheduleGroups'
 
 export function StudentSchedule() {
   const { data, currentUser } = useApp()
@@ -11,26 +12,26 @@ export function StudentSchedule() {
 
   if (!currentUser) return null
 
-  const groupCode = useMemo(() => {
+  const groupMeta = useMemo(() => {
+    let groupCode = ''
+    let specialty = currentUser.specialty || ''
     if (currentUser.groupId) {
       const g = data.groups.find((x) => x.id === currentUser.groupId)
       if (g) {
         const m = g.name.match(/(\d{2,4})/)
-        if (m) return m[1]
-        return g.name
+        groupCode = m ? m[1] : g.name
+        if (!specialty && g.specialty) specialty = g.specialty
       }
     }
-    if (currentUser.group) {
+    if (!groupCode && currentUser.group) {
       const m = currentUser.group.match(/(\d{2,4})/)
-      return m ? m[1] : currentUser.group
+      groupCode = m ? m[1] : currentUser.group
     }
-    return ''
+    return { groupCode, specialty }
   }, [currentUser, data.groups])
 
-  const items = data.schedule.filter((s) => {
-    if (!groupCode) return false
-    return s.group === groupCode || s.group.startsWith(groupCode) || s.group.includes(groupCode)
-  })
+  const groupCode = groupMeta.groupCode
+  const items = matchStudentSchedule(data.schedule, groupCode, groupMeta.specialty)
 
   return (
     <div className="page">

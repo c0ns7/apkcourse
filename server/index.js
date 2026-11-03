@@ -119,6 +119,34 @@ function requireScheduleAdmin(req, res, next) {
   next()
 }
 
+function shortSpecialtyLabel(specialty) {
+  const s = String(specialty || '').trim()
+  if (!s) return ''
+  const m = s.match(/^\d[\d.]*\s+(.+)$/)
+  const name = (m ? m[1] : s).trim()
+  return name.length > 42 ? `${name.slice(0, 40)}…` : name
+}
+
+function listScheduleGroupOptions() {
+  return db
+    .prepare(
+      `SELECT DISTINCT group_name AS name, IFNULL(specialty, '') AS specialty
+       FROM schedule_lessons
+       ORDER BY CAST(group_name AS INTEGER), group_name, specialty`
+    )
+    .all()
+    .map((g) => {
+      const specialty = g.specialty || undefined
+      const short = shortSpecialtyLabel(specialty)
+      return {
+        key: `${g.name}::${specialty || ''}`,
+        name: g.name,
+        specialty,
+        label: short ? `${g.name} — ${short}` : g.name,
+      }
+    })
+}
+
 function mapScheduleLesson(s) {
   return {
     id: s.id,
@@ -1299,27 +1327,31 @@ app.post('/api/upload', auth, upload.single('file'), (req, res) => {
 // ——— Public schedule ———
 app.get('/api/public/schedule', (req, res) => {
   const currentWeek = getStudyWeekNumber()
-  const groups = db
-    .prepare(
-      `SELECT DISTINCT group_name AS name FROM schedule_lessons ORDER BY group_name`
-    )
-    .all()
-    .map((g) => g.name)
+  const groupOptions = listScheduleGroupOptions()
 
   const group = String(req.query.group || '').trim()
+  const specialtyQ = String(req.query.specialty || '').trim()
   const weekParam = req.query.week
   const weekFilter =
     weekParam === '1' || weekParam === '2' ? Number(weekParam) : currentWeek
 
   let lessons = []
   if (group) {
-    const rows = db
-      .prepare(
-        `SELECT * FROM schedule_lessons
-         WHERE group_name = ?
-         ORDER BY day, time_start, sort_order`
-      )
-      .all(group)
+    const rows = specialtyQ
+      ? db
+          .prepare(
+            `SELECT * FROM schedule_lessons
+             WHERE group_name = ? AND IFNULL(specialty, '') = ?
+             ORDER BY day, time_start, sort_order, subgroup`
+          )
+          .all(group, specialtyQ)
+      : db
+          .prepare(
+            `SELECT * FROM schedule_lessons
+             WHERE group_name = ?
+             ORDER BY day, time_start, sort_order, subgroup`
+          )
+          .all(group)
     lessons = rows
       .map(mapScheduleLesson)
       .filter((L) => L.week == null || L.week === weekFilter)
@@ -1328,19 +1360,18 @@ app.get('/api/public/schedule', (req, res) => {
   res.json({
     currentWeek,
     week: weekFilter,
-    groups,
+    groups: groupOptions.map((g) => g.name),
+    groupOptions,
     lessons,
   })
 })
 
 app.get('/api/schedule/groups', auth, (_req, res) => {
-  const groups = db
-    .prepare(
-      `SELECT DISTINCT group_name AS name FROM schedule_lessons ORDER BY group_name`
-    )
-    .all()
-    .map((g) => g.name)
-  res.json({ groups, currentWeek: getStudyWeekNumber() })
+  res.json({
+    groups: listScheduleGroupOptions().map((g) => g.name),
+    groupOptions: listScheduleGroupOptions(),
+    currentWeek: getStudyWeekNumber(),
+  })
 })
 
 app.post('/api/schedule', auth, requireScheduleAdmin, (req, res) => {

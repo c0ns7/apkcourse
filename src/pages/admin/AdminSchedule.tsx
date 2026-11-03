@@ -8,24 +8,26 @@ import {
   dayLabels,
   getStudyWeekNumber,
 } from '../../utils/helpers'
+import { buildScheduleGroupOptions } from '../../utils/scheduleGroups'
 
 export function AdminSchedule() {
   const { data, currentUser, refresh } = useApp()
   const canEdit = adminCanManageSchedule(currentUser)
   const currentWeek = getStudyWeekNumber()
-  const groups = useMemo(
-    () =>
-      [...new Set(data.schedule.map((s) => s.group))].sort((a, b) =>
-        a.localeCompare(b, 'ru', { numeric: true })
-      ),
+  const groupOptions = useMemo(
+    () => buildScheduleGroupOptions(data.schedule),
     [data.schedule]
   )
-  const [group, setGroup] = useState('')
+  const [selectedKey, setSelectedKey] = useState('')
   const [week, setWeek] = useState<1 | 2>(currentWeek)
 
   useEffect(() => {
-    if (!group && groups[0]) setGroup(groups[0])
-  }, [groups, group])
+    if (!selectedKey && groupOptions[0]) setSelectedKey(groupOptions[0].key)
+  }, [groupOptions, selectedKey])
+
+  const selected = groupOptions.find((g) => g.key === selectedKey)
+  const group = selected?.name || ''
+
   const [showModal, setShowModal] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -40,7 +42,12 @@ export function AdminSchedule() {
     subgroup: '',
   })
 
-  const lessons = data.schedule.filter((s) => s.group === group)
+  const lessons = data.schedule.filter((s) => {
+    if (!selected) return false
+    if (s.group !== selected.name) return false
+    if (selected.specialty) return s.specialty === selected.specialty
+    return !s.specialty
+  })
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -58,6 +65,7 @@ export function AdminSchedule() {
         room: form.room.trim() || undefined,
         week: form.week ? Number(form.week) : null,
         subgroup: form.subgroup || undefined,
+        specialty: selected?.specialty,
       })
       await refresh()
       setShowModal(false)
@@ -113,11 +121,11 @@ export function AdminSchedule() {
       <div className="dash-toolbar" style={{ marginBottom: '1rem' }}>
         <div className="form-group" style={{ margin: 0 }}>
           <label>Группа</label>
-          <select value={group} onChange={(e) => setGroup(e.target.value)}>
-            {!groups.length && <option value="">Нет данных</option>}
-            {groups.map((g) => (
-              <option key={g} value={g}>
-                {g}
+          <select value={selectedKey} onChange={(e) => setSelectedKey(e.target.value)}>
+            {!groupOptions.length && <option value="">Нет данных</option>}
+            {groupOptions.map((g) => (
+              <option key={g.key} value={g.key}>
+                {g.label}
               </option>
             ))}
           </select>
@@ -144,7 +152,9 @@ export function AdminSchedule() {
 
       {canEdit && group && (
         <div className="card table-wrap" style={{ marginTop: '1.25rem' }}>
-          <h3 style={{ marginTop: 0 }}>Все занятия группы {group}</h3>
+          <h3 style={{ marginTop: 0 }}>
+            Все занятия · {selected?.label || group}
+          </h3>
           <table>
             <thead>
               <tr>
@@ -152,13 +162,19 @@ export function AdminSchedule() {
                 <th>Время</th>
                 <th>Занятие</th>
                 <th>Нед.</th>
+                <th>Подгр.</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
               {lessons
                 .slice()
-                .sort((a, b) => a.day - b.day || a.timeStart.localeCompare(b.timeStart))
+                .sort(
+                  (a, b) =>
+                    a.day - b.day ||
+                    a.timeStart.localeCompare(b.timeStart) ||
+                    String(a.subgroup || '').localeCompare(String(b.subgroup || ''))
+                )
                 .map((L) => (
                   <tr key={L.id}>
                     <td>{dayLabels[L.day] || L.day}</td>
@@ -171,6 +187,7 @@ export function AdminSchedule() {
                       {L.room ? ` · ${L.room}` : ''}
                     </td>
                     <td>{L.week ?? 'каждая'}</td>
+                    <td>{L.subgroup || '—'}</td>
                     <td>
                       <button
                         type="button"

@@ -2,24 +2,43 @@ import { useEffect, useState } from 'react'
 import type { ScheduleItem } from '../types'
 import { ScheduleBoard } from './ScheduleBoard'
 import { getStudyWeekNumber } from '../utils/helpers'
+import { scheduleGroupKey, type ScheduleGroupOption } from '../utils/scheduleGroups'
 
 type PublicResponse = {
   currentWeek: 1 | 2
   week: 1 | 2
   groups: string[]
+  groupOptions?: ScheduleGroupOption[]
   lessons: ScheduleItem[]
 }
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) || ''
 
+function normalizeOptions(data: PublicResponse): ScheduleGroupOption[] {
+  if (data.groupOptions?.length) {
+    return data.groupOptions.map((g) => ({
+      ...g,
+      key: g.key || scheduleGroupKey(g.name, g.specialty),
+      label: g.label || (g.specialty ? `${g.name} — ${g.specialty}` : g.name),
+    }))
+  }
+  return (data.groups || []).map((name) => ({
+    key: scheduleGroupKey(name),
+    name,
+    label: name,
+  }))
+}
+
 export function PublicSchedule() {
-  const [groups, setGroups] = useState<string[]>([])
-  const [group, setGroup] = useState('')
+  const [options, setOptions] = useState<ScheduleGroupOption[]>([])
+  const [selectedKey, setSelectedKey] = useState('')
   const [currentWeek, setCurrentWeek] = useState<1 | 2>(getStudyWeekNumber())
   const [week, setWeek] = useState<1 | 2>(getStudyWeekNumber())
   const [lessons, setLessons] = useState<ScheduleItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  const selected = options.find((o) => o.key === selectedKey)
 
   useEffect(() => {
     let cancelled = false
@@ -28,10 +47,11 @@ export function PublicSchedule() {
         const res = await fetch(`${API_BASE}/api/public/schedule`)
         const data = (await res.json()) as PublicResponse
         if (cancelled) return
-        setGroups(data.groups || [])
+        const opts = normalizeOptions(data)
+        setOptions(opts)
         setCurrentWeek(data.currentWeek)
         setWeek(data.currentWeek)
-        if (data.groups?.length) setGroup((g) => g || data.groups[0])
+        if (opts.length) setSelectedKey((k) => k || opts[0].key)
       } catch {
         if (!cancelled) setError('Не удалось загрузить расписание')
       } finally {
@@ -44,16 +64,19 @@ export function PublicSchedule() {
   }, [])
 
   useEffect(() => {
-    if (!group) {
+    if (!selected) {
       setLessons([])
       return
     }
     let cancelled = false
     ;(async () => {
       try {
-        const res = await fetch(
-          `${API_BASE}/api/public/schedule?group=${encodeURIComponent(group)}&week=${week}`
-        )
+        const params = new URLSearchParams({
+          group: selected.name,
+          week: String(week),
+        })
+        if (selected.specialty) params.set('specialty', selected.specialty)
+        const res = await fetch(`${API_BASE}/api/public/schedule?${params}`)
         const data = (await res.json()) as PublicResponse
         if (cancelled) return
         setLessons(data.lessons || [])
@@ -65,7 +88,7 @@ export function PublicSchedule() {
     return () => {
       cancelled = true
     }
-  }, [group, week])
+  }, [selected, week])
 
   return (
     <section className="landing-schedule" id="schedule" aria-label="Расписание занятий">
@@ -82,11 +105,15 @@ export function PublicSchedule() {
           <div className="landing-schedule-controls">
             <label>
               Группа
-              <select value={group} onChange={(e) => setGroup(e.target.value)} disabled={loading}>
-                {!groups.length && <option value="">Нет данных</option>}
-                {groups.map((g) => (
-                  <option key={g} value={g}>
-                    {g}
+              <select
+                value={selectedKey}
+                onChange={(e) => setSelectedKey(e.target.value)}
+                disabled={loading}
+              >
+                {!options.length && <option value="">Нет данных</option>}
+                {options.map((g) => (
+                  <option key={g.key} value={g.key}>
+                    {g.label}
                   </option>
                 ))}
               </select>
@@ -117,7 +144,11 @@ export function PublicSchedule() {
           <ScheduleBoard
             lessons={lessons}
             week={week}
-            emptyText={group ? `Для группы ${group} на ${week}-й неделе занятий нет` : 'Выберите группу'}
+            emptyText={
+              selected
+                ? `Для группы ${selected.label} на ${week}-й неделе занятий нет`
+                : 'Выберите группу'
+            }
           />
         )}
       </div>

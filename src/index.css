@@ -1053,6 +1053,109 @@ tr:hover td { background: rgba(128, 128, 128, 0.04); }
 
 .schedule-item strong { display: block; font-size: 0.82rem; }
 
+.schedule-day-empty {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0;
+  text-align: center;
+}
+
+.schedule-slot {
+  margin-bottom: 0.55rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px dashed rgba(22, 51, 85, 0.12);
+}
+
+.schedule-slot:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.schedule-slot-time {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #3a5f8a;
+  margin-bottom: 0.3rem;
+  letter-spacing: 0.02em;
+}
+
+.schedule-card {
+  background: rgba(26, 77, 109, 0.08);
+  border-left: 3px solid var(--primary);
+  padding: 0.4rem 0.45rem;
+  border-radius: 6px;
+  margin-bottom: 0.35rem;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.schedule-card-title {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.schedule-card-meta {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.schedule-subgrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+  margin-top: 0.2rem;
+}
+
+.schedule-subcol {
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(22, 51, 85, 0.1);
+  border-radius: 8px;
+  padding: 0.35rem;
+}
+
+.schedule-subbadge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #1a4f8a;
+  background: rgba(40, 90, 150, 0.12);
+  border-radius: 999px;
+  padding: 0.12rem 0.4rem;
+  margin-bottom: 0.3rem;
+}
+
+.schedule-subempty {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 0.35rem 0;
+}
+
+.schedule-subcol .schedule-card {
+  background: rgba(26, 77, 109, 0.06);
+}
+
+.schedule-weekchip {
+  display: inline-block;
+  margin-top: 0.2rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #5a4a1a;
+  background: rgba(210, 175, 60, 0.22);
+  border-radius: 999px;
+  padding: 0.1rem 0.35rem;
+}
+
 .announcement-card.pinned {
   border-left: 4px solid var(--accent);
 }
