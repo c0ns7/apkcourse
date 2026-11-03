@@ -168,8 +168,61 @@ export function initDb() {
   migrateUserRoles()
   migrateExtendedSchema()
   ensureRoot()
+  ensureRootOverlay()
   ensureCatalog()
   ensurePortalSeed()
+}
+
+/** Профиль root из seed/root-overlay.json (ФИО, роли admin+teacher, дисциплины) */
+function ensureRootOverlay() {
+  const overlayPath = path.join(__dirname, 'seed', 'root-overlay.json')
+  if (!fs.existsSync(overlayPath)) return
+  let overlay
+  try {
+    overlay = JSON.parse(fs.readFileSync(overlayPath, 'utf8'))
+  } catch (e) {
+    console.error('[seed] root-overlay.json:', e.message)
+    return
+  }
+  const login = (process.env.ROOT_LOGIN || 'root').toLowerCase()
+  const root = db.prepare('SELECT * FROM users WHERE login = ? COLLATE NOCASE').get(login)
+  if (!root) return
+
+  const roles = normalizeRoles(
+    Array.isArray(overlay.roles) ? overlay.roles : ['admin', 'teacher'],
+    'admin'
+  )
+  if (!roles.includes('admin')) roles.unshift('admin')
+  const discs = Array.isArray(overlay.disciplines) ? overlay.disciplines : []
+  const types = Array.isArray(overlay.enabledAssignmentTypes)
+    ? overlay.enabledAssignmentTypes
+    : [
+        'essay', 'test', 'table', 'scheme', 'matching', 'qa', 'quiz', 'distribution', 'other',
+      ]
+
+  db.prepare(`
+    UPDATE users SET
+      full_name = ?,
+      role = ?,
+      roles_json = ?,
+      disciplines_json = ?,
+      academic_year = COALESCE(?, academic_year),
+      education_form = ?,
+      enabled_assignment_types_json = COALESCE(enabled_assignment_types_json, ?),
+      admin_scopes_json = COALESCE(admin_scopes_json, ?)
+    WHERE id = ?
+  `).run(
+    overlay.fullName || root.full_name,
+    pickPrimaryRole(roles),
+    JSON.stringify(roles),
+    JSON.stringify(discs),
+    overlay.academicYear || null,
+    normalizeEducationForm(overlay.educationForm || root.education_form),
+    JSON.stringify(types),
+    JSON.stringify(['all']),
+    root.id
+  )
+  console.log(`[seed] root overlay: ${overlay.fullName || root.full_name} (${roles.join('+')})`)
 }
 
 /**
