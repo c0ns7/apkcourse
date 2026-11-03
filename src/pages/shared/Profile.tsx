@@ -75,6 +75,18 @@ export function Profile() {
               Учебный год: <strong>{currentUser.academicYear}</strong>
             </p>
           )}
+          {!!currentUser.disciplines?.length && (
+            <div style={{ marginTop: '1rem', textAlign: 'left' }}>
+              <p style={{ margin: '0 0 0.4rem', fontSize: '0.8rem', fontWeight: 700, opacity: 0.7 }}>
+                Преподаваемые дисциплины
+              </p>
+              <ul style={{ margin: 0, paddingLeft: '1.1rem', fontSize: '0.9rem' }}>
+                {currentUser.disciplines.map((d) => (
+                  <li key={d}>{d}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
         <div className="card">
           <h3 style={{ marginTop: 0 }}>Редактировать</h3>

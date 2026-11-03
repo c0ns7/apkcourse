@@ -45,6 +45,11 @@ export function TeacherDashboard() {
                 ? ` · ${toGrade.length} работ ждут проверки`
                 : ' · очередь проверки пуста'}
             </p>
+            {!!currentUser.disciplines?.length && (
+              <p className="dash-welcome-meta" style={{ marginTop: '0.35rem', maxWidth: '42rem' }}>
+                Дисциплины: {currentUser.disciplines.join(' · ')}
+              </p>
+            )}
           </div>
           <div className="dash-welcome-actions">
             <Link to="/teacher/grading" className="btn-primary">

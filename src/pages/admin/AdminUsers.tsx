@@ -235,6 +235,7 @@ export function AdminUsers() {
               <th>Роли</th>
               <th>Группа</th>
               <th>Форма</th>
+              <th>Дисциплины</th>
               <th></th>
             </tr>
           </thead>
@@ -267,6 +268,11 @@ export function AdminUsers() {
                           .map((s) => adminScopeLabels[s])
                           .join(', ')
                       : '—'}
+                </td>
+                <td style={{ maxWidth: 280, fontSize: '0.85rem' }}>
+                  {hasRole(u, 'teacher') && u.disciplines?.length
+                    ? u.disciplines.join('; ')
+                    : '—'}
                 </td>
                 <td style={{ whiteSpace: 'nowrap' }}>
                   {canManage(u) && (
