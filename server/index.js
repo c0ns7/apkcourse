@@ -23,6 +23,7 @@ import {
   normalizeEducationForm,
   normalizeAdminScopes,
   parseJson,
+  getStudyWeekNumber,
 } from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -101,6 +102,39 @@ function requireRoot(req, res, next) {
     return res.status(403).json({ error: 'Доступ только для root' })
   }
   next()
+}
+
+function canManageSchedule(user) {
+  if (!user) return false
+  if (isRootLogin(user.login) || user.isRoot) return true
+  if (!userHasRole(user, 'admin')) return false
+  const scopes = normalizeAdminScopes(user.adminScopes)
+  return scopes.includes('all') || scopes.includes('schedule')
+}
+
+function requireScheduleAdmin(req, res, next) {
+  if (!canManageSchedule(req.user)) {
+    return res.status(403).json({ error: 'Нет права на управление расписанием' })
+  }
+  next()
+}
+
+function mapScheduleLesson(s) {
+  return {
+    id: s.id,
+    group: s.group_name,
+    groupId: s.group_id || undefined,
+    day: s.day,
+    timeStart: s.time_start,
+    timeEnd: s.time_end,
+    room: s.room || '',
+    title: s.title,
+    teacherName: s.teacher_name || undefined,
+    week: s.week == null ? null : Number(s.week) === 2 ? 2 : 1,
+    subgroup: s.subgroup || undefined,
+    academicYear: s.academic_year || undefined,
+    specialty: s.specialty || undefined,
+  }
 }
 
 function publicUser(u) {
@@ -1262,8 +1296,136 @@ app.post('/api/upload', auth, upload.single('file'), (req, res) => {
 })
 
 // ——— Health ———
+// ——— Public schedule ———
+app.get('/api/public/schedule', (req, res) => {
+  const currentWeek = getStudyWeekNumber()
+  const groups = db
+    .prepare(
+      `SELECT DISTINCT group_name AS name FROM schedule_lessons ORDER BY group_name`
+    )
+    .all()
+    .map((g) => g.name)
+
+  const group = String(req.query.group || '').trim()
+  const weekParam = req.query.week
+  const weekFilter =
+    weekParam === '1' || weekParam === '2' ? Number(weekParam) : currentWeek
+
+  let lessons = []
+  if (group) {
+    const rows = db
+      .prepare(
+        `SELECT * FROM schedule_lessons
+         WHERE group_name = ?
+         ORDER BY day, time_start, sort_order`
+      )
+      .all(group)
+    lessons = rows
+      .map(mapScheduleLesson)
+      .filter((L) => L.week == null || L.week === weekFilter)
+  }
+
+  res.json({
+    currentWeek,
+    week: weekFilter,
+    groups,
+    lessons,
+  })
+})
+
+app.get('/api/schedule/groups', auth, (_req, res) => {
+  const groups = db
+    .prepare(
+      `SELECT DISTINCT group_name AS name FROM schedule_lessons ORDER BY group_name`
+    )
+    .all()
+    .map((g) => g.name)
+  res.json({ groups, currentWeek: getStudyWeekNumber() })
+})
+
+app.post('/api/schedule', auth, requireScheduleAdmin, (req, res) => {
+  const {
+    group,
+    day,
+    timeStart,
+    timeEnd,
+    title,
+    teacherName,
+    room,
+    week,
+    subgroup,
+    academicYear,
+    specialty,
+  } = req.body || {}
+  if (!group || day == null || !timeStart || !title?.trim()) {
+    return res.status(400).json({ error: 'Укажите группу, день, время и название' })
+  }
+  const id = uid()
+  db.prepare(`
+    INSERT INTO schedule_lessons (
+      id, group_name, day, time_start, time_end, title, teacher_name, room,
+      week, subgroup, academic_year, specialty, sort_order
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+  `).run(
+    id,
+    String(group).trim(),
+    Number(day),
+    timeStart,
+    timeEnd || timeStart,
+    String(title).trim(),
+    teacherName || null,
+    room || '',
+    week === 1 || week === 2 || week === '1' || week === '2' ? Number(week) : null,
+    subgroup || null,
+    academicYear || '2026-2027',
+    specialty || null
+  )
+  logActivity(req.user, 'Расписание: добавление', `${group}: ${title}`)
+  res.status(201).json({ data: loadAppData(), currentWeek: getStudyWeekNumber() })
+})
+
+app.patch('/api/schedule/:id', auth, requireScheduleAdmin, (req, res) => {
+  const row = db.prepare('SELECT * FROM schedule_lessons WHERE id = ?').get(req.params.id)
+  if (!row) return res.status(404).json({ error: 'Не найдено' })
+  const b = req.body || {}
+  db.prepare(`
+    UPDATE schedule_lessons SET
+      group_name = ?, day = ?, time_start = ?, time_end = ?, title = ?,
+      teacher_name = ?, room = ?, week = ?, subgroup = ?,
+      academic_year = ?, specialty = ?
+    WHERE id = ?
+  `).run(
+    b.group != null ? String(b.group).trim() : row.group_name,
+    b.day != null ? Number(b.day) : row.day,
+    b.timeStart ?? row.time_start,
+    b.timeEnd ?? row.time_end,
+    b.title != null ? String(b.title).trim() : row.title,
+    b.teacherName !== undefined ? b.teacherName || null : row.teacher_name,
+    b.room !== undefined ? b.room || '' : row.room,
+    b.week === null || b.week === ''
+      ? null
+      : b.week !== undefined
+        ? Number(b.week)
+        : row.week,
+    b.subgroup !== undefined ? b.subgroup || null : row.subgroup,
+    b.academicYear !== undefined ? b.academicYear || null : row.academic_year,
+    b.specialty !== undefined ? b.specialty || null : row.specialty,
+    row.id
+  )
+  logActivity(req.user, 'Расписание: изменение', row.id)
+  res.json({ data: loadAppData(), currentWeek: getStudyWeekNumber() })
+})
+
+app.delete('/api/schedule/:id', auth, requireScheduleAdmin, (req, res) => {
+  const row = db.prepare('SELECT * FROM schedule_lessons WHERE id = ?').get(req.params.id)
+  if (!row) return res.status(404).json({ error: 'Не найдено' })
+  db.prepare('DELETE FROM schedule_lessons WHERE id = ?').run(row.id)
+  logActivity(req.user, 'Расписание: удаление', `${row.group_name}: ${row.title}`)
+  res.json({ data: loadAppData(), currentWeek: getStudyWeekNumber() })
+})
+
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, time: new Date().toISOString() })
+  res.json({ ok: true, time: new Date().toISOString(), currentWeek: getStudyWeekNumber() })
 })
 
 // Production: serve frontend build

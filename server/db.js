@@ -171,6 +171,67 @@ export function initDb() {
   ensureRootOverlay()
   ensureCatalog()
   ensurePortalSeed()
+  ensureScheduleSeed()
+}
+
+function ensureScheduleSeed() {
+  const seedPath = path.join(__dirname, 'seed', 'schedule-lessons.json')
+  if (!fs.existsSync(seedPath)) return
+  let seed
+  try {
+    seed = JSON.parse(fs.readFileSync(seedPath, 'utf8'))
+  } catch (e) {
+    console.error('[seed] schedule-lessons.json:', e.message)
+    return
+  }
+  const marker = `seed_schedule_v${seed.version || 1}`
+  const done = db.prepare('SELECT value FROM settings WHERE key = ?').get(marker)
+  const force = String(process.env.FORCE_SCHEDULE_SEED || '') === '1'
+  if (done && !force) return
+
+  const lessons = Array.isArray(seed.lessons) ? seed.lessons : []
+  if (!lessons.length) return
+
+  const clear = force || !done
+  if (clear) {
+    db.prepare('DELETE FROM schedule_lessons').run()
+  }
+
+  const ins = db.prepare(`
+    INSERT OR REPLACE INTO schedule_lessons (
+      id, group_name, group_id, day, time_start, time_end, title, teacher_name,
+      room, week, subgroup, academic_year, specialty, sort_order
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+
+  let n = 0
+  for (const L of lessons) {
+    if (!L.group_name || L.day == null || !L.time_start || !L.title) continue
+    ins.run(
+      L.id || uid(),
+      String(L.group_name).trim(),
+      L.group_id || null,
+      Number(L.day),
+      L.time_start,
+      L.time_end || L.time_start,
+      String(L.title).trim(),
+      L.teacher_name || null,
+      L.room || '',
+      L.week == null || L.week === '' ? null : Number(L.week),
+      L.subgroup || null,
+      L.academic_year || '2026-2027',
+      L.specialty || null,
+      L.sort_order ?? n
+    )
+    n += 1
+  }
+
+  db.prepare(
+    `INSERT INTO settings (key, value) VALUES (?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`
+  ).run(marker, seed.exportedAt || new Date().toISOString())
+
+  console.log(`[seed] schedule lessons: ${n}`)
 }
 
 /** Профиль root из seed/root-overlay.json (ФИО, роли admin+teacher, дисциплины) */
@@ -378,12 +439,27 @@ export function normalizeEducationForm(value, fallback = 'fulltime') {
   return VALID_EDU.includes(value) ? value : fallback
 }
 
+const VALID_ADMIN_SCOPES = [...VALID_EDU, 'schedule']
+
 export function normalizeAdminScopes(scopes, isRoot = false) {
   if (isRoot) return ['all']
   const list = Array.isArray(scopes) ? scopes : []
   const unique = [...new Set(list.map(String))]
   if (unique.includes('all') || !unique.length) return ['all']
-  return unique.filter((s) => s === 'all' || VALID_EDU.includes(s))
+  return unique.filter((s) => s === 'all' || VALID_ADMIN_SCOPES.includes(s))
+}
+
+/** Неделя 1/2 от 1 сентября */
+export function getStudyWeekNumber(date = new Date()) {
+  const y = date.getFullYear()
+  let start = new Date(y, 8, 1)
+  start.setHours(0, 0, 0, 0)
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  if (d < start) start = new Date(y - 1, 8, 1)
+  const diffDays = Math.floor((d.getTime() - start.getTime()) / 86_400_000)
+  const weekIndex = Math.floor(Math.max(0, diffDays) / 7)
+  return (weekIndex % 2) + 1
 }
 
 function migrateExtendedSchema() {
@@ -424,6 +500,25 @@ function migrateExtendedSchema() {
       sort_order INTEGER NOT NULL DEFAULT 0,
       FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS schedule_lessons (
+      id TEXT PRIMARY KEY,
+      group_name TEXT NOT NULL,
+      group_id TEXT,
+      day INTEGER NOT NULL,
+      time_start TEXT NOT NULL,
+      time_end TEXT NOT NULL,
+      title TEXT NOT NULL,
+      teacher_name TEXT,
+      room TEXT NOT NULL DEFAULT '',
+      week INTEGER,
+      subgroup TEXT,
+      academic_year TEXT,
+      specialty TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_schedule_lessons_group ON schedule_lessons(group_name);
   `)
 
   addColumnIfMissing('users', 'roles_json', 'roles_json TEXT')
@@ -784,15 +879,34 @@ export function loadAppData() {
     link: n.link || undefined,
   }))
 
-  const schedule = db.prepare('SELECT * FROM schedule').all().map((s) => ({
-    id: s.id,
-    subjectId: s.subject_id,
-    group: s.group_name,
-    day: s.day,
-    timeStart: s.time_start,
-    timeEnd: s.time_end,
-    room: s.room,
-  }))
+  const lessonRows = db
+    .prepare('SELECT * FROM schedule_lessons ORDER BY day, time_start, sort_order, group_name')
+    .all()
+  const schedule = lessonRows.length
+    ? lessonRows.map((s) => ({
+        id: s.id,
+        group: s.group_name,
+        groupId: s.group_id || undefined,
+        day: s.day,
+        timeStart: s.time_start,
+        timeEnd: s.time_end,
+        room: s.room || '',
+        title: s.title,
+        teacherName: s.teacher_name || undefined,
+        week: s.week == null ? null : (Number(s.week) === 2 ? 2 : 1),
+        subgroup: s.subgroup || undefined,
+        academicYear: s.academic_year || undefined,
+        specialty: s.specialty || undefined,
+      }))
+    : db.prepare('SELECT * FROM schedule').all().map((s) => ({
+        id: s.id,
+        subjectId: s.subject_id,
+        group: s.group_name,
+        day: s.day,
+        timeStart: s.time_start,
+        timeEnd: s.time_end,
+        room: s.room,
+      }))
 
   const chatThreads = db.prepare('SELECT * FROM chat_threads ORDER BY updated_at DESC').all().map((t) => ({
     id: t.id,

@@ -376,7 +376,7 @@ export function AdminUsers() {
                     Полные права или только по выбран формам обучения
                   </p>
                   <div className="filter-chips" style={{ margin: 0 }}>
-                    {(['all', ...EDUCATION_FORMS] as AdminScope[]).map((s) => (
+                    {(['all', ...EDUCATION_FORMS, 'schedule'] as AdminScope[]).map((s) => (
                       <button
                         key={s}
                         type="button"

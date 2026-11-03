@@ -37,6 +37,7 @@ const adminNav: NavItem[] = [
   { to: '/admin/users', label: 'Пользователи', icon: 'user' },
   { to: '/admin/groups', label: 'Группы', icon: 'users' },
   { to: '/admin/disciplines', label: 'Дисциплины', icon: 'book' },
+  { to: '/admin/schedule', label: 'Расписание', icon: 'calendar' },
   { to: '/admin/announcements', label: 'Объявления', icon: 'megaphone' },
 ]
 

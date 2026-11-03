@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Icon, type IconName } from '../components/Icon'
+import { PublicSchedule } from '../components/PublicSchedule'
 import { SiteChrome } from '../components/SiteChrome'
 import './Landing.css'
 
@@ -61,9 +62,9 @@ export function Landing() {
                 <Link to="/login" className="landing-btn-main">
                   Войти в кабинет
                 </Link>
-                <Link to="/privacy" className="landing-btn-secondary">
-                  Конфиденциальность
-                </Link>
+                <a href="#schedule" className="landing-btn-secondary">
+                  Расписание
+                </a>
               </div>
             </div>
 
@@ -115,6 +116,8 @@ export function Landing() {
             </div>
           </div>
         </section>
+
+        <PublicSchedule />
 
         <section className="landing-sections" aria-labelledby="sections-title">
           <div className="landing-sections-inner">

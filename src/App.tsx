@@ -21,6 +21,7 @@ import { AdminDashboard } from './pages/admin/AdminDashboard'
 import { AdminUsers } from './pages/admin/AdminUsers'
 import { AdminGroups } from './pages/admin/AdminGroups'
 import { AdminDisciplines } from './pages/admin/AdminDisciplines'
+import { AdminSchedule } from './pages/admin/AdminSchedule'
 import { AdminLogs } from './pages/admin/AdminLogs'
 import { TeacherAssignmentView } from './pages/teacher/TeacherAssignmentView'
 import { ChatPage } from './pages/shared/ChatPage'
@@ -209,6 +210,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute roles={['admin']}>
               <AdminDisciplines />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="admin/schedule"
+          element={
+            <ProtectedRoute roles={['admin']}>
+              <AdminSchedule />
             </ProtectedRoute>
           }
         />

@@ -1,42 +1,74 @@
+import { useMemo, useState } from 'react'
 import { useApp } from '../../context/AppContext'
 import { PageHeader } from '../../components/PageHeader'
-import { dayLabels } from '../../utils/helpers'
+import { ScheduleBoard } from '../../components/ScheduleBoard'
+import { getStudyWeekNumber } from '../../utils/helpers'
 
 export function StudentSchedule() {
   const { data, currentUser } = useApp()
+  const currentWeek = getStudyWeekNumber()
+  const [week, setWeek] = useState<1 | 2>(currentWeek)
+
   if (!currentUser) return null
 
-  const group = currentUser.group || 'ПД-21'
-  const items = data.schedule.filter((s) => s.group === group)
+  const groupCode = useMemo(() => {
+    if (currentUser.groupId) {
+      const g = data.groups.find((x) => x.id === currentUser.groupId)
+      if (g) {
+        const m = g.name.match(/(\d{2,4})/)
+        if (m) return m[1]
+        return g.name
+      }
+    }
+    if (currentUser.group) {
+      const m = currentUser.group.match(/(\d{2,4})/)
+      return m ? m[1] : currentUser.group
+    }
+    return ''
+  }, [currentUser, data.groups])
+
+  const items = data.schedule.filter((s) => {
+    if (!groupCode) return false
+    return s.group === groupCode || s.group.startsWith(groupCode) || s.group.includes(groupCode)
+  })
 
   return (
     <div className="page">
-      <PageHeader title="Расписание" subtitle={`Группа ${group}`} />
+      <PageHeader
+        title="Расписание"
+        subtitle={
+          groupCode
+            ? `Группа ${currentUser.group || groupCode} · сейчас ${currentWeek}-я учебная неделя`
+            : 'Группа не назначена'
+        }
+      />
 
-      <div className="schedule-grid">
-        {dayLabels.map((day, i) => {
-          const dayItems = items.filter((s) => s.day === i)
-          return (
-            <div key={day} className="schedule-day">
-              <h4>{day}</h4>
-              {dayItems.length === 0 ? (
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>—</p>
-              ) : (
-                dayItems.map((item) => {
-                  const subject = data.subjects.find((s) => s.id === item.subjectId)
-                  return (
-                    <div key={item.id} className="schedule-item" style={{ borderLeftColor: subject?.color }}>
-                      <strong>{subject?.title ?? 'Занятие'}</strong>
-                      <span>{item.timeStart} – {item.timeEnd}</span>
-                      <span>ауд. {item.room}</span>
-                    </div>
-                  )
-                })
-              )}
-            </div>
-          )
-        })}
+      <div className="filter-chips" style={{ marginBottom: '1rem' }}>
+        <button
+          type="button"
+          className={`chip ${week === 1 ? 'active' : ''}`}
+          onClick={() => setWeek(1)}
+        >
+          1 неделя{currentWeek === 1 ? ' · текущая' : ''}
+        </button>
+        <button
+          type="button"
+          className={`chip ${week === 2 ? 'active' : ''}`}
+          onClick={() => setWeek(2)}
+        >
+          2 неделя{currentWeek === 2 ? ' · текущая' : ''}
+        </button>
       </div>
+
+      {!groupCode ? (
+        <div className="card empty-state">Обратитесь к администратору для назначения группы</div>
+      ) : (
+        <ScheduleBoard
+          lessons={items}
+          week={week}
+          emptyText={`На ${week}-й неделе занятий нет`}
+        />
+      )}
     </div>
   )
 }

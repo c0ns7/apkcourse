@@ -3,8 +3,8 @@ export type Role = 'student' | 'teacher' | 'admin'
 /** Форма обучения */
 export type EducationForm = 'fulltime' | 'distance' | 'retraining' | 'professional'
 
-/** Область прав администратора (по формам обучения) */
-export type AdminScope = 'all' | EducationForm
+/** Область прав администратора (формы обучения + расписание) */
+export type AdminScope = 'all' | EducationForm | 'schedule'
 
 export type SubmissionStatus = 'pending' | 'submitted' | 'graded' | 'returned'
 
@@ -177,13 +177,22 @@ export interface Notification {
 
 export interface ScheduleItem {
   id: string
-  subjectId: string
+  /** @deprecated старые записи с привязкой к subject */
+  subjectId?: string
   group: string
   groupId?: string
   day: number
   timeStart: string
   timeEnd: string
   room: string
+  /** Название занятия / дисциплины */
+  title?: string
+  teacherName?: string
+  /** 1 | 2 — числитель/знаменатель; пусто = каждую неделю */
+  week?: 1 | 2 | null
+  subgroup?: string
+  academicYear?: string
+  specialty?: string
 }
 
 export interface ChatMessage {

@@ -45,12 +45,47 @@ export const adminScopeLabels: Record<AdminScope, string> = {
   distance: 'Заочное обучение',
   retraining: 'Проф. переподготовка',
   professional: 'Проф. обучение',
+  schedule: 'Расписание занятий',
 }
 
 export function normalizeAdminScopes(scopes?: AdminScope[] | null): AdminScope[] {
   if (!scopes?.length) return ['all']
   if (scopes.includes('all')) return ['all']
   return [...new Set(scopes.filter((s) => s !== 'all'))] as AdminScope[]
+}
+
+export function adminCanManageSchedule(
+  user: Pick<User, 'isRoot' | 'adminScopes' | 'role' | 'roles'> | null | undefined
+): boolean {
+  if (!user) return false
+  if (user.isRoot) return true
+  if (!hasRole(user, 'admin')) return false
+  const scopes = normalizeAdminScopes(user.adminScopes)
+  return scopes.includes('all') || scopes.includes('schedule')
+}
+
+/**
+ * Учебная неделя 1/2:
+ * 1 сентября — начало 1-й недели, через 7 дней — 2-я, затем снова 1-я…
+ * (9 сент. = 2-я, 16 сент. = 1-я)
+ */
+export function getStudyWeekNumber(date: Date = new Date()): 1 | 2 {
+  const y = date.getFullYear()
+  let start = new Date(y, 8, 1) // 1 сентября
+  start.setHours(0, 0, 0, 0)
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  if (d < start) start = new Date(y - 1, 8, 1)
+  const diffDays = Math.floor((d.getTime() - start.getTime()) / 86_400_000)
+  const weekIndex = Math.floor(Math.max(0, diffDays) / 7)
+  return ((weekIndex % 2) + 1) as 1 | 2
+}
+
+export function lessonVisibleOnWeek(
+  lessonWeek: 1 | 2 | null | undefined,
+  currentWeek: 1 | 2
+): boolean {
+  return lessonWeek == null || lessonWeek === currentWeek
 }
 
 /** Может ли админ управлять данной формой обучения */

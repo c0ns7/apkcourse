@@ -205,6 +205,18 @@ export const api = {
     }),
   markThreadRead: (threadId: string) =>
     request<DataResponse>(`/api/chat/threads/${threadId}/read`, { method: 'POST' }),
+  createScheduleLesson: (fields: Record<string, unknown>) =>
+    request<DataResponse>('/api/schedule', {
+      method: 'POST',
+      body: JSON.stringify(fields),
+    }),
+  updateScheduleLesson: (id: string, fields: Record<string, unknown>) =>
+    request<DataResponse>(`/api/schedule/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(fields),
+    }),
+  deleteScheduleLesson: (id: string) =>
+    request<DataResponse>(`/api/schedule/${id}`, { method: 'DELETE' }),
   upload: async (file: File, kind = 'file') => {
     const form = new FormData()
     form.append('file', file)
